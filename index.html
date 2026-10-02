@@ -790,22 +790,48 @@
             map.fitBounds(L.latLngBounds(waypoints.map(w=>[w.lat,w.lng])), {padding:[60,60]}); 
         }
         
-        function shareRoute() { 
-            if(!locations.length) return; 
+        window.generateShareText = () => {
+            if(!locations.length) return '';
             const needReturn = document.getElementById('returnToStartCheckbox').checked; 
-            let msg = '📍 *Мой маршрут*\n📌 Точек: '+locations.length+'\n'+(needReturn ? '🔄 С возвратом\n\n' : '➡️ Без возврата\n\n'); 
+            let msg = '🚀 https://aipush.dev/optiroute/\n\n📍 *Мой маршрут*\n📌 Точек: '+locations.length+'\n'+(needReturn ? '🔄 С возвратом\n\n' : '➡️ Без возврата\n\n'); 
             const ordered = currentOptimizedOrder || locations; 
-            ordered.forEach((loc,i)=>{ msg+=`${i+1}. ${loc.address.substring(0,70)}\n   https://maps.google.com/?q=${loc.lat},${loc.lng}\n`; }); 
-            if(needReturn && ordered.length>1) msg+=`↺ Возврат: ${ordered[0].address.substring(0,60)}\n`; 
+            ordered.forEach((loc,i)=>{ 
+                if(loc.completed) {
+                    msg+=`✅ ${i+1}. ~${loc.address.substring(0,70)}~\n`;
+                } else {
+                    msg+=`⏳ ${i+1}. ${loc.address.substring(0,70)}\n   https://yandex.ru/maps/?pt=${loc.lng},${loc.lat}&z=16\n`; 
+                }
+            });
+            return msg;
+        };
+
+        function shareRoute() { 
+            if(!locations.length) { alert('Маршрут пуст'); return; }
+            const msg = window.generateShareText();
             const enc = encodeURIComponent(msg); 
-            const shareHtml = `<div style="margin-top:12px;"><div style="font-weight:800;">📤 ОТПРАВИТЬ В МЕССЕНДЖЕРЫ:</div><div class="messenger-grid"><button id="tgShare" style="background:#26A5E4;">📨 Telegram</button><button id="waShare" style="background:#25D366;">💬 WhatsApp</button><button id="copyRouteBtn" style="background:#6c757d;">📋 Копировать</button></div></div>`;
+            
+            const shareHtml = `
+            <div style="text-align: center; padding: 10px 0;">
+                <div style="font-size: 18px; font-weight: 800; margin-bottom: 5px; color: #1e3c72;">📤 Поделиться маршрутом</div>
+                <div style="font-size: 13px; color: #666; margin-bottom: 15px;">Куда отправим маршрут?</div>
+                <div class="messenger-grid" style="display: grid; gap: 8px;">
+                    <button id="tgShare" style="background:#26A5E4; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">📨 В Telegram</button>
+                    <button id="waShare" style="background:#25D366; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">💬 В WhatsApp</button>
+                    <button id="copyRouteBtn" style="background:#6c757d; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">📋 Скопировать текст</button>
+                </div>
+                <button onclick="document.getElementById('infoPanel').innerHTML='<div style=\'font-weight:800;\'>📊 Маршрутный центр</div><div>💡 Кликните по карте для добавления точки с точным адресом</div>';" style="margin-top: 15px; background: transparent; border: 1px solid #ccc; padding: 6px 12px; border-radius: 6px; cursor: pointer;">Отмена</button>
+            </div>`;
+            
             const panel = document.getElementById('infoPanel'); 
-            if(!panel.querySelector('#tgShare')){ 
-                panel.innerHTML += shareHtml; 
-                document.getElementById('tgShare')?.addEventListener('click',()=>window.open(`https://t.me/share/url?url=${encodeURIComponent('https://optr.pro')}&text=${enc}`,'_blank')); 
-                document.getElementById('waShare')?.addEventListener('click',()=>window.open(`https://wa.me/?text=${enc}`,'_blank')); 
-                document.getElementById('copyRouteBtn')?.addEventListener('click',()=>{ navigator.clipboard.writeText(msg.replace(/\*/g, '')); document.getElementById('scanStatus').innerHTML = '📋 Маршрут скопирован!'; setTimeout(()=>document.getElementById('scanStatus').innerHTML='✨ Готов к новым маршрутам',2000); }); 
-            } 
+            panel.innerHTML = shareHtml; 
+            
+            document.getElementById('tgShare')?.addEventListener('click',()=>window.open(`https://t.me/share/url?url=${encodeURIComponent('https://aipush.dev/optiroute/')}&text=${enc}`,'_blank')); 
+            document.getElementById('waShare')?.addEventListener('click',()=>window.open(`https://wa.me/?text=${enc}`,'_blank')); 
+            document.getElementById('copyRouteBtn')?.addEventListener('click',()=>{ 
+                navigator.clipboard.writeText(msg.replace(/\*/g, '')); 
+                document.getElementById('copyRouteBtn').innerHTML = '✅ Скопировано!';
+                setTimeout(()=> document.getElementById('copyRouteBtn').innerHTML = '📋 Скопировать текст', 2000); 
+            }); 
         }
         
         function updateQuickStats() { return; 
@@ -1147,35 +1173,6 @@
         document.getElementById('mapClickModeBtn').onclick=()=>setMapClickMode(true);
                 document.getElementById('optimizeRouteBtn').onclick=buildOptimal;
         document.getElementById('shareRouteBtn').onclick = () => {
-            if (locations.length === 0) { alert('Маршрут пуст'); return; }
-            
-            const needReturn = document.getElementById('returnToStartCheckbox').checked; 
-            let msg = '📍 *Мой маршрут*\n📌 Точек: '+locations.length+'\n'+(needReturn ? '🔄 С возвратом\n\n' : '➡️ Без возврата\n\n'); 
-            const ordered = currentOptimizedOrder || locations; 
-            ordered.forEach((loc,i)=>{ 
-                if(loc.completed) {
-                    msg+=`✅ ${i+1}. ~${loc.address.substring(0,70)}~\n`;
-                } else {
-                    msg+=`⏳ ${i+1}. ${loc.address.substring(0,70)}\n   https://maps.google.com/?q=${loc.lat},${loc.lng}\n`; 
-                }
-            }); 
-            if(needReturn && ordered.length>1) msg+=`↺ Возврат: ${ordered[0].address.substring(0,60)}\n`; 
-
-            // Copy to clipboard immediately
-            navigator.clipboard.writeText(msg.replace(/\*/g, '')).then(() => {
-                const btn = document.getElementById('shareRouteBtn');
-                const origText = btn.innerHTML;
-                btn.innerHTML = '📋 Скопировано!';
-                btn.style.background = '#2ecc71';
-                setTimeout(() => {
-                    btn.innerHTML = origText;
-                    btn.style.background = '';
-                }, 2000);
-            }).catch(err => {
-                alert('Не удалось скопировать. Попробуйте кнопку на карте справа.');
-            });
-            
-            // Also show the messengers panel
             shareRoute();
         };
                 document.getElementById('clearAllBtn').onclick=() => {
