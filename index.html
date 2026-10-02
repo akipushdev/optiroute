@@ -808,7 +808,7 @@
                 if(loc.completed) {
                     msg+=`✅ ${i+1}. ~${loc.address.substring(0,70)}~\n`;
                 } else {
-                    msg+=`⏳ ${i+1}. ${loc.address.substring(0,70)}\n   https://yandex.ru/maps/?pt=${loc.lng},${loc.lat}&z=16\n`; 
+                    msg+=`⏳ ${i+1}. ${loc.address.substring(0,70)}\n   https://yandex.ru/navi?text=${loc.lat},${loc.lng}\n`; 
                 }
             });
             return msg;
