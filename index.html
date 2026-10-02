@@ -107,6 +107,14 @@
         .recognized-status { font-size: 10px; color: #666; margin-left: 8px; }
         .status-success { color: #27ae60; }
         .status-failed { color: #e74c3c; }
+    
+        .auth-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(11, 43, 68, 0.95); z-index: 999999; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+        .auth-modal { background: white; padding: 30px; border-radius: 24px; width: 340px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.4); animation: fadeSlideUp 0.3s ease-out; }
+        .auth-input { width: 100%; padding: 14px; margin: 18px 0; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 16px; outline: none; transition: 0.2s; text-align: center; }
+        .auth-input:focus { border-color: #f39c12; }
+        .auth-btn { background: linear-gradient(135deg, #f39c12, #e67e22); color: white; width: 100%; padding: 14px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 15px; transition: 0.2s; }
+        .auth-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(230, 126, 34, 0.4); }
+
     </style>
 </head>
 <body>
@@ -200,28 +208,13 @@
         // Конфигурация OCR.space API
         const OCR_API_URL = 'https://api.ocr.space/parse/image';
         function getOcrKey() {
-            let key = localStorage.getItem('ocr_api_key');
-            if (!key) {
-                const pass = prompt('Введите пароль для доступа к OCR.space:');
-                if (pass) {
-                    try {
-                        const enc = atob('JEhNW1xHRFldRkxRVkVD');
-                        let res = '';
-                        for(let i=0; i<enc.length; i++) {
-                            res += String.fromCharCode(enc.charCodeAt(i) ^ pass.charCodeAt(i % pass.length));
-                        }
-                        key = res;
-                        localStorage.setItem('ocr_api_key', key);
-                    } catch(e) { alert('Ошибка расшифровки'); }
-                }
-            }
-            return key;
+            return localStorage.getItem('ocr_api_key');
         }
         
         // Инициализация карты
         const map = L.map('map').setView([55.751244, 37.618423], 11);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap, CartoDB',
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
             subdomains: 'abcd',
             maxZoom: 19
         }).addTo(map);
@@ -828,6 +821,56 @@
         
         console.log('✅ OptiRoute Pro с OCR.space загружен');
         console.log('🔑 OCR API Key защищен паролем');
+
+        // Логика авторизации при входе
+        function checkAuth() {
+            const savedKey = localStorage.getItem('ocr_api_key');
+            if (!savedKey) {
+                const overlay = document.createElement('div');
+                overlay.className = 'auth-overlay';
+                overlay.innerHTML = `
+                    <div class="auth-modal">
+                        <div style="font-size: 40px; margin-bottom: 10px;">🔒</div>
+                        <h2 style="color: #1a4a6f; margin-bottom: 8px;">OptiRoute Pro</h2>
+                        <p style="font-size: 13px; color: #666;">Введите мастер-пароль для доступа к системе и разблокировки OCR.</p>
+                        <input type="password" id="authPass" class="auth-input" placeholder="Пароль">
+                        <div id="authError" style="color: #e74c3c; font-size: 13px; margin-bottom: 15px; display: none; font-weight: 500;">❌ Неверный пароль</div>
+                        <button class="auth-btn" id="authBtn">Войти в систему</button>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+
+                const authPass = document.getElementById('authPass');
+                const authBtn = document.getElementById('authBtn');
+                
+                const tryAuth = () => {
+                    const pass = authPass.value;
+                    try {
+                        const enc = atob('JEhNW1xHRFldRkxRVkVD');
+                        let res = '';
+                        for(let i=0; i<enc.length; i++) {
+                            res += String.fromCharCode(enc.charCodeAt(i) ^ pass.charCodeAt(i % pass.length));
+                        }
+                        if (res.length === 15) {
+                            localStorage.setItem('ocr_api_key', res);
+                            overlay.remove();
+                        } else {
+                            document.getElementById('authError').style.display = 'block';
+                        }
+                    } catch(e) {
+                        document.getElementById('authError').style.display = 'block';
+                    }
+                };
+
+                authBtn.onclick = tryAuth;
+                authPass.onkeypress = (e) => { if(e.key === 'Enter') tryAuth(); };
+                authPass.focus();
+            }
+        }
+        
+        // Запускаем проверку при старте
+        checkAuth();
+
         console.log('📍 Все распознанные адреса будут показаны и добавлены в "Мои точки"');
     </script>
 </body>
