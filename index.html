@@ -824,6 +824,18 @@
                     msg+=`⏳ ${i+1}. ${loc.address.substring(0,70)}\n   https://yandex.ru/navi?text=${loc.lat},${loc.lng}\n`; 
                 }
             });
+            
+            let activePoints = ordered.filter(p => !p.completed);
+            if (activePoints.length === 0 && needReturn) {
+                activePoints = [ordered[0]];
+            } else if (needReturn && ordered.length > 0) {
+                activePoints.push(ordered[0]);
+            }
+            
+            if (activePoints.length > 0) {
+                msg += `\n🚗 Открыть оставшийся маршрут в Навигаторе:\nhttps://yandex.ru/navi/?mode=waypoints&pt=${activePoints.map(p => `${p.lng},${p.lat}`).join('~')}\n`;
+            }
+            
             return msg;
         };
 
