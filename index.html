@@ -1112,7 +1112,38 @@
                 document.getElementById('optimizeRouteBtn').onclick=buildOptimal;
         document.getElementById('shareRouteBtn').onclick = () => {
             if (locations.length === 0) { alert('Маршрут пуст'); return; }
-            shareRoute(currentOptimizedOrder || locations);
+            
+            const needReturn = document.getElementById('returnToStartCheckbox').checked; 
+            let msg = '📍 *Мой маршрут*
+📌 Точек: '+locations.length+'
+'+(needReturn ? '🔄 С возвратом
+
+' : '➡️ Без возврата
+
+'); 
+            const ordered = currentOptimizedOrder || locations; 
+            ordered.forEach((loc,i)=>{ msg+=`${i+1}. ${loc.address.substring(0,70)}
+   https://maps.google.com/?q=${loc.lat},${loc.lng}
+`; }); 
+            if(needReturn && ordered.length>1) msg+=`↺ Возврат: ${ordered[0].address.substring(0,60)}
+`; 
+
+            // Copy to clipboard immediately
+            navigator.clipboard.writeText(msg.replace(/\*/g, '')).then(() => {
+                const btn = document.getElementById('shareRouteBtn');
+                const origText = btn.innerHTML;
+                btn.innerHTML = '📋 Скопировано!';
+                btn.style.background = '#2ecc71';
+                setTimeout(() => {
+                    btn.innerHTML = origText;
+                    btn.style.background = '';
+                }, 2000);
+            }).catch(err => {
+                alert('Не удалось скопировать. Попробуйте кнопку на карте справа.');
+            });
+            
+            // Also show the messengers panel
+            shareRoute();
         };
                 document.getElementById('clearAllBtn').onclick=() => {
             if(!confirm('Удалить промежуточные точки? (Старт и Финиш останутся)')) return;
