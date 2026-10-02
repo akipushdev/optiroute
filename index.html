@@ -140,8 +140,6 @@
                 <div id="mapClickInfo" style="display: none; background: #eef2ff; padding: 12px; border-radius: 28px; margin-top: 12px; text-align: center; font-weight: 500;">
                     🖱️ Режим добавления: кликните по карте — определится точный адрес
                 </div>
-                <button id="geolocationBtn" class="btn-primary" style="background:#eef3fc; color:#1e3c72; margin-top: 12px;">📍 Моё местоположение (точный адрес)</button>
-                
                 <div class="scan-section">
                     <div class="scan-title">
                         🔍 OCR.space РАСПОЗНАВАНИЕ
@@ -161,19 +159,43 @@
                     </div>
                 </div>
                 
-                <div class="return-option">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="returnToStartCheckbox" checked>
-                        <span>🔄 Вернуться в начальную точку (замкнуть маршрут)</span>
-                    </label>
-                    <div class="stats-panel" id="quickStats" style="display: none;">
-                        <span>📌 Точек: <span id="quickPointsCount">0</span></span>
-                        <span>📏 Расстояние: <span id="quickDistance">0 км</span></span>
+                
+            </div>
+            
+            <div class="start-end-panel" style="background:#f8f9fa; padding:12px; border-radius:8px; margin-bottom:15px; border:1px solid #e2e8f0;">
+                <h4 style="margin:0 0 10px 0; font-size:14px; color:#1e3c72;">🏁 Настройка Старта и Финиша</h4>
+                
+                <div style="margin-bottom:8px;">
+                    <div style="font-size:12px; font-weight:bold; color:#2c3e50; margin-bottom:4px;">🟢 Стартовая точка:</div>
+                    <div style="display:flex; gap:5px;">
+                        <input type="text" id="startInput" placeholder="Укажите адрес..." class="location-input" style="margin:0;">
+                        <button class="icon-btn" onclick="window.setStartFromGPS()" style="background:#fff;border:1px solid #ccc;border-radius:4px;" title="Моё местоположение">📍</button>
+                        <button class="btn-primary" onclick="window.setStartFromInput()" style="padding:4px 10px; font-size:12px;">Задать</button>
                     </div>
                 </div>
+
+                <label class="checkbox-label" style="font-size:13px; margin-bottom:8px;">
+                    <input type="checkbox" id="returnToStartCheckbox" checked onchange="window.toggleEndMode()">
+                    <span>🔄 Вернуться в начальную точку</span>
+                </label>
+
+                <div id="endPointWrapper" style="opacity: 0.5; pointer-events: none;">
+                    <div style="font-size:12px; font-weight:bold; color:#2c3e50; margin-bottom:4px;">🏁 Конечная точка:</div>
+                    <div style="display:flex; gap:5px;">
+                        <input type="text" id="endInput" placeholder="Совпадает со стартом" class="location-input" style="margin:0;" disabled>
+                        <button class="icon-btn" id="endGpsBtn" onclick="window.setEndFromGPS()" style="background:#fff;border:1px solid #ccc;border-radius:4px;" title="Моё местоположение" disabled>📍</button>
+                        <button class="btn-primary" id="endSetBtn" onclick="window.setEndFromInput()" style="padding:4px 10px; font-size:12px;" disabled>Задать</button>
+                    </div>
+                </div>
+                
+                <div class="stats-panel" id="quickStats" style="display: none; margin-top:10px;">
+                    <span>📌 Точек: <span id="quickPointsCount">0</span></span>
+                    <span>📏 Расстояние: <span id="quickDistance">0 км</span></span>
+                </div>
             </div>
+
             <div class="locations-list">
-                <h3 style="margin-bottom: 14px;">🗺️ Мои точки (<span id="locationCount">0</span>)</h3>
+                <h3 style="margin-bottom: 14px;">🛣️ Мой маршрут (<span id="locationCount">0</span>)</h3>
                 <div id="locationsContainer" style="max-height: 400px; overflow-y: auto;"></div>
             </div>
             <div class="route-actions">
@@ -388,7 +410,13 @@
                 finalAddr = geo.displayName; 
             }
             
-            locations.push({ lat: finalLat, lng: finalLng, address: finalAddr });
+            const newItem = { lat: finalLat, lng: finalLng, address: finalAddr, role: 'waypoint', id: Date.now()+Math.random() };
+            const endIdx = locations.findIndex(l => l.role === 'end');
+            if (endIdx !== -1) {
+                locations.splice(endIdx, 0, newItem);
+            } else {
+                locations.push(newItem);
+            }
             updateLocationsUI();
             refreshMapMarkers();
             clearRoute();
@@ -407,14 +435,91 @@
             catch { statusDiv.innerHTML = '❌ Ошибка адреса'; setTimeout(() => statusDiv.innerHTML = original, 2000); }
         }
 
-        async function getUserLocation() {
+        
+        window.toggleEndMode = () => {
+            const isReturn = document.getElementById('returnToStartCheckbox').checked;
+            const endWrap = document.getElementById('endPointWrapper');
+            const endInput = document.getElementById('endInput');
+            const endGpsBtn = document.getElementById('endGpsBtn');
+            const endSetBtn = document.getElementById('endSetBtn');
+            
+            if (isReturn) {
+                endWrap.style.opacity = '0.5';
+                endWrap.style.pointerEvents = 'none';
+                endInput.disabled = true;
+                endGpsBtn.disabled = true;
+                endSetBtn.disabled = true;
+                const existingEndIdx = locations.findIndex(l => l.role === 'end');
+                if (existingEndIdx !== -1) {
+                    locations.splice(existingEndIdx, 1);
+                    updateLocationsUI();
+                    refreshMapMarkers();
+                }
+            } else {
+                endWrap.style.opacity = '1';
+                endWrap.style.pointerEvents = 'auto';
+                endInput.disabled = false;
+                endGpsBtn.disabled = false;
+                endSetBtn.disabled = false;
+            }
+            
+            if (locations.length >= 2) { 
+                currentOptimizedOrder ? buildOptimal() : buildManualRoute(); 
+            }
+        };
+
+        window.setStartPoint = (address, lat, lng) => {
+            const existingIdx = locations.findIndex(l => l.role === 'start');
+            if (existingIdx !== -1) locations.splice(existingIdx, 1);
+            locations.unshift({ lat, lng, address, role: 'start', id: Date.now() + Math.random() });
+            updateLocationsUI();
+            refreshMapMarkers();
+            if(locations.length >= 2) buildManualRoute();
+        };
+
+        window.setEndPoint = (address, lat, lng) => {
+            const existingIdx = locations.findIndex(l => l.role === 'end');
+            if (existingIdx !== -1) locations.splice(existingIdx, 1);
+            locations.push({ lat, lng, address, role: 'end', id: Date.now() + Math.random() });
+            updateLocationsUI();
+            refreshMapMarkers();
+            if(locations.length >= 2) buildManualRoute();
+        };
+
+        window.setStartFromInput = async () => {
+            const val = document.getElementById('startInput').value;
+            if(!val) return;
+            const geo = await geocode(val);
+            if(geo) window.setStartPoint(geo.displayName, geo.lat, geo.lng);
+        };
+
+        window.setEndFromInput = async () => {
+            const val = document.getElementById('endInput').value;
+            if(!val) return;
+            const geo = await geocode(val);
+            if(geo) window.setEndPoint(geo.displayName, geo.lat, geo.lng);
+        };
+
+        window.setStartFromGPS = () => {
             if (!navigator.geolocation) { alert('Геолокация не поддерживается'); return; }
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 const address = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
-                await addLocation(address, pos.coords.latitude, pos.coords.longitude);
+                window.setStartPoint(address, pos.coords.latitude, pos.coords.longitude);
+                document.getElementById('startInput').value = address.substring(0,30)+'...';
                 map.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
             }, () => alert('Ошибка геолокации'));
-        }
+        };
+
+        window.setEndFromGPS = () => {
+            if (!navigator.geolocation) { alert('Геолокация не поддерживается'); return; }
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const address = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+                window.setEndPoint(address, pos.coords.latitude, pos.coords.longitude);
+                document.getElementById('endInput').value = address.substring(0,30)+'...';
+                map.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
+            }, () => alert('Ошибка геолокации'));
+        };
+
 
         function updateLocationsUI() {
             const container = document.getElementById('locationsContainer');
@@ -427,14 +532,17 @@
             }
             
             container.innerHTML = locations.map((loc, idx) => `
-                <div class="location-item ${idx === 0 ? 'start-point' : ''}">
-                    <span class="drag-handle" style="cursor: grab; font-size: 18px; margin-right: 12px; color: #a0aec0;">☰</span>
+                <div class="location-item ${(loc.role === 'start' || loc.role === 'end') ? 'fixed-point' : ''}" style="${loc.role==='start'?'border-left-color:#2ecc71;':''}${loc.role==='end'?'border-left-color:#e74c3c;':''}">
+                    ${(loc.role !== 'start' && loc.role !== 'end') ? '<span class="drag-handle" style="cursor: grab; font-size: 18px; margin-right: 12px; color: #a0aec0;">☰</span>' : '<span style="width: 18px; margin-right: 12px; display:inline-block;"></span>'}
                     <div style="flex:1;">
-                        <div style="font-weight:600;">${idx+1}. ${loc.address.substring(0, 70)}${idx===0?'<span class="start-badge">Старт</span>':''}</div>
+                        <div style="font-weight:600;">${idx+1}. ${loc.address.substring(0, 70)}
+                            ${loc.role === 'start' ? '<span class="start-badge" style="background:#2ecc71;color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Старт</span>' : ''}
+                            ${loc.role === 'end' ? '<span class="start-badge" style="background:#e74c3c;color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Финиш</span>' : ''}
+                            ${(!loc.role && idx===0) ? '<span class="start-badge" style="background:#95a5a6;color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Неявный старт</span>' : ''}
+                        </div>
                         <div style="font-size:10px; color:#666;">${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}</div>
                     </div>
                     <div>
-                        ${idx !== 0 ? `<button class="icon-btn" onclick="window.setAsStart(${idx})" title="Сделать стартовой">⭐</button>` : ''}
                         <button class="icon-btn" onclick="window.centerOnLoc(${idx})" title="Центрировать">📍</button>
                         <button class="icon-btn" onclick="window.removeLoc(${idx})" title="Удалить">❌</button>
                     </div>
@@ -968,6 +1076,10 @@
                     animation: 150,
                     handle: '.drag-handle',
                     ghostClass: 'sortable-ghost',
+                    filter: '.fixed-point',
+                    onMove: function (evt) {
+                        return !evt.related.classList.contains('fixed-point');
+                    },
                     onEnd: function (evt) {
                         if (evt.oldIndex === evt.newIndex) return;
                         const movedItem = locations.splice(evt.oldIndex, 1)[0];
