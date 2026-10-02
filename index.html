@@ -435,8 +435,13 @@
         
         window.confirmReoptimize = () => {
             if (locations.length >= 2) {
-                if (confirm('Маршрут будет автоматически перестроен оптимально. Продолжить?')) {
-                    buildOptimal();
+                const intermediates = locations.filter(l => l.role !== 'start' && l.role !== 'end');
+                if (intermediates.length > 0) {
+                    if (confirm('Маршрут будет автоматически перестроен оптимально. Продолжить?')) {
+                        buildOptimal();
+                    } else {
+                        buildManualRoute();
+                    }
                 } else {
                     buildManualRoute();
                 }
