@@ -110,7 +110,16 @@
     
         
 
-    </style>
+    
+        @media (max-width: 768px) {
+            .app-container { flex-direction: column; }
+            .sidebar { width: 100%; border-right: none; height: 100vh; overflow-y: auto; padding-bottom: 50px; }
+            .map-container { display: none; }
+            body.map-picking .sidebar { display: none; }
+            body.map-picking .map-container { display: block; position: fixed; top:0; left:0; width:100vw; height:100vh; z-index:9999; }
+            .info-panel { display: none !important; }
+        }
+</style>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 </head>
 <body>
@@ -194,6 +203,8 @@
                 <h3 style="margin-bottom: 14px;">🛣️ Мой маршрут (<span id="locationCount">0</span>)</h3>
                 <div id="locationsContainer" style="max-height: 400px; overflow-y: auto;"></div>
             </div>
+            
+            <div id="sidebarStats" style="display:none; padding:10px; background:#e8f4f8; border-radius:8px; margin-bottom:15px; font-size:14px; text-align:center;"></div>
             <div class="route-actions">
                 <button id="optimizeRouteBtn" class="btn-success">✨ Оптимальный маршрут</button>
                 <button id="shareRouteBtn" class="btn-share">📤 Поделиться</button>
@@ -239,6 +250,8 @@
         let currentPreviewMarker = null;
         let currentPreviewData = null;
         let currentOptimizedOrder = null;
+        window.currentRouteDistKm = 0;
+        window.currentRouteTimeMin = 0;
         let searchTimeout = null;
         let recognition = null;
         
@@ -422,6 +435,8 @@
         }
 
         async function handleMapClick(e) {
+            if (document.body.classList.contains('map-picking')) setMapClickMode(false);
+
             if (!mapClickMode) return;
             const { lat, lng } = e.latlng;
             const statusDiv = document.getElementById('scanStatus');
@@ -693,38 +708,6 @@
         }
         
         function openInNavigator(url) { window.open(url, '_blank'); }
-        function showNavigationOptions(orderedPoints, needReturn) { 
-            if(!orderedPoints || orderedPoints.length === 0) return;
-            
-            let activePoints = orderedPoints.filter(p => !p.completed);
-            
-            if (activePoints.length === 0 && needReturn) {
-                activePoints = [orderedPoints[0]];
-            } else if (needReturn && orderedPoints.length > 0) {
-                activePoints.push(orderedPoints[0]);
-            }
-            
-            if (activePoints.length === 0) {
-                alert('Все точки маршрута уже пройдены!');
-                return;
-            }
-
-            const start = activePoints[0];
-            const yandexUrl = `https://yandex.ru/navi/?mode=waypoints&pt=${activePoints.map(p => `${p.lng},${p.lat}`).join('~')}`;
-            let googleUrl = `https://www.google.com/maps/dir/${start.lat},${start.lng}`;
-            for(let i = 1; i < activePoints.length; i++) googleUrl += `/${activePoints[i].lat},${activePoints[i].lng}`;
-            const wazeUrl = `https://www.waze.com/ul?ll=${start.lat},${start.lng}&navigate=yes`;
-            const navHtml = `<div style="margin-top:12px;"><div style="font-weight:800;">🗺️ ОТКРЫТЬ В НАВИГАТОРЕ:</div><div class="nav-selector"><button class="nav-btn" data-url="${encodeURIComponent(yandexUrl)}">🚕 Яндекс</button><button class="nav-btn" data-url="${encodeURIComponent(googleUrl)}">🗺️ Google</button><button class="nav-btn" data-url="${encodeURIComponent(wazeUrl)}">🛣️ Waze</button></div></div>`;
-            const panel = document.getElementById('infoPanel');
-            const existing = panel.querySelector('.nav-selector-container');
-            if(existing) existing.remove();
-            const container = document.createElement('div');
-            container.className = 'nav-selector-container';
-            container.innerHTML = navHtml;
-            panel.appendChild(container);
-            document.querySelectorAll('.nav-btn').forEach(btn => { btn.onclick = () => openInNavigator(decodeURIComponent(btn.getAttribute('data-url'))); });
-        }
-        
         function buildManualRoute() {
             if (locations.length < 2) {
                 alert('Добавьте минимум 2 точки для маршрута');
@@ -757,6 +740,8 @@
                 const route = e.routes[0];
                 const distKm = (route.summary.totalDistance / 1000).toFixed(1);
                 const minutes = Math.round(route.summary.totalTime / 60);
+                window.currentRouteDistKm = distKm;
+                window.currentRouteTimeMin = minutes;
                 const timeStr = minutes >= 60 ? `${Math.floor(minutes/60)} ч ${minutes%60} мин` : `${minutes} мин`;
                 let orderHtml = locations.map((l,i)=> l.completed ? `✅ <del>${l.address.substring(0,40)}</del>` : `⏳ ${i+1}. ${l.address.substring(0,40)}`).join('<br>');
                 if(needReturn) orderHtml += '<br>↺ Вернуться на старт';
@@ -765,11 +750,10 @@
                     <div style="font-weight:800;">✅ Пользовательский маршрут</div>
                     <div>📏 ${distKm} км | ⏱️ ${timeStr}<br>🔄 ${needReturn ? 'С возвратом' : 'Без возврата'}</div>
                     <div style="margin-top:8px;"><strong>📌 Порядок:</strong><br>${orderHtml}</div>
-                    <button id="sendToNavBtn" class="send-route-btn">🗺️ ОТПРАВИТЬ В НАВИГАТОР</button>
-                    <button id="shareRouteBtnPanel" class="share-btn">📤 ПОДЕЛИТЬСЯ</button>
                 `;
-                document.getElementById('sendToNavBtn')?.addEventListener('click', () => showNavigationOptions(locations, needReturn));
-                document.getElementById('shareRouteBtnPanel')?.addEventListener('click', () => shareRoute(locations));
+                const sb = document.getElementById('sidebarStats');
+                if(sb) { sb.innerHTML = `<div style="font-weight:bold;color:#1e3c72;margin-bottom:5px;">✅ Пользовательский маршрут</div><div>📏 <b>${distKm} км</b> | ⏱️ <b>${timeStr}</b></div>`; sb.style.display = 'block'; }
+
             });
             if(!window.preventFitBounds) { map.fitBounds(L.latLngBounds(waypoints), {padding: [60, 60]}); }
         }
@@ -805,17 +789,32 @@
                 const timeStr = minutes >= 60 ? `${Math.floor(minutes/60)} ч ${minutes%60} мин` : `${minutes} мин`; 
                 let orderHtml = ordered.map((l,i)=> l.completed ? `✅ <del>${l.address.substring(0,40)}</del>` : `⏳ ${i+1}. ${l.address.substring(0,40)}`).join('<br>'); 
                 if(needReturn) orderHtml += '<br>↺ Вернуться на старт'; 
-                document.getElementById('infoPanel').innerHTML = `<div style="font-weight:800;">✅ Оптимальный маршрут</div><div>📏 ${distKm} км | ⏱️ ${timeStr}<br>🔄 ${needReturn ? 'С возвратом' : 'Без возврата'}</div><div><strong>📌 Порядок:</strong><br>${orderHtml}</div><button id="sendToNavBtn" class="send-route-btn">🗺️ ОТПРАВИТЬ В НАВИГАТОР</button><button id="shareRouteBtnPanel" class="share-btn">📤 ПОДЕЛИТЬСЯ</button>`; 
-                document.getElementById('sendToNavBtn')?.addEventListener('click', () => showNavigationOptions(currentOptimizedOrder, needReturn)); 
-                document.getElementById('shareRouteBtnPanel')?.addEventListener('click', () => shareRoute()); 
+                document.getElementById('infoPanel').innerHTML = `<div style="font-weight:800;">✅ Оптимальный маршрут</div><div>📏 ${distKm} км | ⏱️ ${timeStr}<br>🔄 ${needReturn ? 'С возвратом' : 'Без возврата'}</div><div><strong>📌 Порядок:</strong><br>${orderHtml}</div>`; 
+                const sb = document.getElementById('sidebarStats');
+                if(sb) { sb.innerHTML = `<div style="font-weight:bold;color:#1e3c72;margin-bottom:5px;">✅ Оптимальный маршрут</div><div>📏 <b>${distKm} км</b> | ⏱️ <b>${timeStr}</b></div>`; sb.style.display = 'block'; } 
             }); 
             if(!window.preventFitBounds) { map.fitBounds(L.latLngBounds(waypoints.map(w=>[w.lat,w.lng])), {padding:[60,60]}); } 
         }
         
+        
+        function openGlobalModal(html) {
+            const overlay = document.getElementById('globalModalOverlay');
+            document.getElementById('globalModalContent').innerHTML = html;
+            overlay.style.display = 'flex';
+        }
+        function closeGlobalModal() {
+            document.getElementById('globalModalOverlay').style.display = 'none';
+        }
+
         window.generateShareText = () => {
             if(!locations.length) return '';
             const needReturn = document.getElementById('returnToStartCheckbox').checked; 
-            let msg = '📍 *Мой маршрут*\n📌 Точек: '+locations.length+'\n'+(needReturn ? '🔄 С возвратом\n\n' : '➡️ Без возврата\n\n'); 
+            
+            let timeStr = window.currentRouteTimeMin >= 60 ? `${Math.floor(window.currentRouteTimeMin/60)} ч ${window.currentRouteTimeMin%60} мин` : `${window.currentRouteTimeMin} мин`;
+            let activePoints = (currentOptimizedOrder || locations).filter(p => !p.completed);
+            
+            let msg = `📍 *Мой маршрут*\n📌 Осталось точек: ${activePoints.length}\n📏 ${window.currentRouteDistKm || 0} км | ⏱️ ${timeStr}\n` + (needReturn ? '🔄 С возвратом\n\n' : '➡️ Без возврата\n\n'); 
+
             const ordered = currentOptimizedOrder || locations; 
             ordered.forEach((loc,i)=>{ 
                 if(loc.completed) {
@@ -825,7 +824,6 @@
                 }
             });
             
-            let activePoints = ordered.filter(p => !p.completed);
             if (activePoints.length === 0 && needReturn) {
                 activePoints = [ordered[0]];
             } else if (needReturn && ordered.length > 0) {
@@ -839,48 +837,77 @@
             return msg;
         };
 
+        function showNavigationOptions(orderedPoints, needReturn) { 
+            if(!orderedPoints || orderedPoints.length === 0) return;
+            let activePoints = orderedPoints.filter(p => !p.completed);
+            
+            if (activePoints.length === 0 && needReturn) {
+                activePoints = [orderedPoints[0]];
+            } else if (needReturn && orderedPoints.length > 0) {
+                activePoints.push(orderedPoints[0]);
+            }
+            if (activePoints.length === 0) {
+                alert('Все точки маршрута уже пройдены!');
+                return;
+            }
+
+            const start = activePoints[0];
+            const yandexUrl = `https://yandex.ru/navi/?mode=waypoints&pt=${activePoints.map(p => `${p.lng},${p.lat}`).join('~')}`;
+            let googleUrl = `https://www.google.com/maps/dir/${start.lat},${start.lng}`;
+            for(let i = 1; i < activePoints.length; i++) googleUrl += `/${activePoints[i].lat},${activePoints[i].lng}`;
+            const wazeUrl = `https://www.waze.com/ul?ll=${start.lat},${start.lng}&navigate=yes`;
+            
+            const navHtml = `
+            <div style="text-align:center;">
+                <div style="font-size:18px; font-weight:800; margin-bottom:15px; color:#1e3c72;">🗺️ Открыть в навигаторе</div>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    <button class="nav-btn" style="background:#ffcc00; color:black; font-weight:bold; padding:12px; border:none; border-radius:8px; cursor:pointer;" onclick="window.open('${yandexUrl}', '_blank'); closeGlobalModal();">🚕 Яндекс.Навигатор</button>
+                    <button class="nav-btn" style="background:#4285F4; color:white; font-weight:bold; padding:12px; border:none; border-radius:8px; cursor:pointer;" onclick="window.open('${googleUrl}', '_blank'); closeGlobalModal();">🗺️ Google Maps</button>
+                    <button class="nav-btn" style="background:#33ccff; color:white; font-weight:bold; padding:12px; border:none; border-radius:8px; cursor:pointer;" onclick="window.open('${wazeUrl}', '_blank'); closeGlobalModal();">🛣️ Waze</button>
+                </div>
+                <button onclick="shareRoute()" style="margin-top:15px; background:transparent; border:1px solid #ccc; padding:8px 16px; border-radius:8px; cursor:pointer; width:100%;">⬅ Назад</button>
+            </div>`;
+            openGlobalModal(navHtml);
+        }
+
         function shareRoute() { 
             if(!locations.length) { alert('Маршрут пуст'); return; }
             const msg = window.generateShareText();
             const enc = encodeURIComponent(msg); 
             
             const shareHtml = `
-            <div style="text-align: center; padding: 10px 0;">
-                <div style="font-size: 18px; font-weight: 800; margin-bottom: 5px; color: #1e3c72;">📤 Поделиться маршрутом</div>
-                <div style="font-size: 13px; color: #666; margin-bottom: 15px;">Куда отправим маршрут?</div>
-                <div class="messenger-grid" style="display: grid; gap: 8px;">
-                    <button id="tgShare" style="background:#26A5E4; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">📨 В Telegram</button>
-                    <button id="waShare" style="background:#25D366; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">💬 В WhatsApp</button>
-                    <button id="copyRouteBtn" style="background:#6c757d; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">📋 Скопировать текст</button>
+            <div style="text-align: center;">
+                <div style="font-size: 18px; font-weight: 800; margin-bottom: 15px; color: #1e3c72;">📤 Поделиться маршрутом</div>
+                
+                <div style="background:#f8f9fa; border:1px solid #eee; border-radius:8px; padding:10px; margin-bottom:15px; font-size:14px;">
+                    📏 <b>${window.currentRouteDistKm || 0} км</b> | ⏱️ <b>${window.currentRouteTimeMin >= 60 ? Math.floor(window.currentRouteTimeMin/60) + ' ч ' + (window.currentRouteTimeMin%60) : window.currentRouteTimeMin} мин</b>
                 </div>
-                <button id="cancelShareBtn" style="margin-top: 15px; background: transparent; border: 1px solid #ccc; padding: 6px 12px; border-radius: 6px; cursor: pointer;">Отмена</button>
+
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button onclick="window.open('https://t.me/share/url?url=${encodeURIComponent('https://aipush.dev/optiroute/')}&text=${enc}','_blank'); closeGlobalModal();" style="background:#26A5E4; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">📨 Отправить в Telegram</button>
+                    <button onclick="window.open('https://wa.me/?text=${enc}','_blank'); closeGlobalModal();" style="background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">💬 Отправить в WhatsApp</button>
+                    <button id="copyBtnModal" style="background:#6c757d; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">📋 Скопировать текст</button>
+                    <div style="height:1px; background:#ddd; margin: 5px 0;"></div>
+                    <button onclick="showNavigationOptions(currentOptimizedOrder || locations, document.getElementById('returnToStartCheckbox').checked)" style="background:#ff9800; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🧭 Открыть в Навигаторе</button>
+                </div>
+                <button onclick="closeGlobalModal()" style="margin-top: 15px; background: transparent; border: 1px solid #ccc; padding:8px 16px; border-radius:8px; cursor:pointer; width:100%;">Закрыть</button>
             </div>`;
             
-            const panel = document.getElementById('infoPanel'); 
-            panel.innerHTML = shareHtml; 
+            openGlobalModal(shareHtml);
             
-            document.getElementById('tgShare')?.addEventListener('click',()=>window.open(`https://t.me/share/url?url=${encodeURIComponent('https://aipush.dev/optiroute/')}&text=${enc}`,'_blank')); 
-            document.getElementById('waShare')?.addEventListener('click',()=>window.open(`https://wa.me/?text=${enc}`,'_blank')); 
-            document.getElementById('copyRouteBtn')?.addEventListener('click',()=>{ 
-                navigator.clipboard.writeText(msg.replace(/\*/g, '')); 
-                document.getElementById('copyRouteBtn').innerHTML = '✅ Скопировано!';
-                setTimeout(()=> document.getElementById('copyRouteBtn').innerHTML = '📋 Скопировать текст', 2000); 
-            }); 
-            
-            document.getElementById('cancelShareBtn')?.addEventListener('click', () => {
-                window.preventFitBounds = true;
-                if (currentOptimizedOrder && currentOptimizedOrder.length > 0) {
-                    buildOptimal();
-                } else if (locations.length >= 2) {
-                    window.buildManualRoute();
-                } else {
-                    document.getElementById('infoPanel').innerHTML='<div style="font-weight:800;">📊 Маршрутный центр</div><div>💡 Кликните по карте для добавления точки с точным адресом</div>';
+            setTimeout(() => {
+                const btn = document.getElementById('copyBtnModal');
+                if (btn) {
+                    btn.onclick = (e) => {
+                        navigator.clipboard.writeText(msg.replace(/\*/g, '')); 
+                        e.target.innerHTML = '✅ Скопировано!';
+                        setTimeout(()=> e.target.innerHTML = '📋 Скопировать текст', 2000); 
+                    };
                 }
-                setTimeout(() => { window.preventFitBounds = false; }, 500);
-            });
+            }, 100);
         }
-        
-        function updateQuickStats() { return; 
+
+function updateQuickStats() { return; 
             const panelDiv = document.getElementById('quickStats'); 
             if(locations.length>=2) { 
                 let total=0; 
@@ -1213,7 +1240,13 @@
             });
         }
         
-        function setMapClickMode(enabled){ mapClickMode=enabled; document.getElementById('searchModeBtn').classList.toggle('active',!enabled); document.getElementById('mapClickModeBtn').classList.toggle('active',enabled); document.getElementById('searchInputs').style.display=enabled?'none':'block'; document.getElementById('mapClickInfo').style.display=enabled?'block':'none'; map.getContainer().style.cursor=enabled?'crosshair':''; if(!enabled && document.getElementById('addressInput').value.trim().length>=2) showAddressOnMap(document.getElementById('addressInput').value); }
+        function setMapClickMode(enabled){ 
+            document.body.classList.toggle('map-picking', enabled);
+            document.getElementById('cancelMapPickBtn').style.display = enabled ? 'block' : 'none';
+            if(enabled) setTimeout(()=>map.invalidateSize(), 300);
+            
+            mapClickMode=enabled; document.getElementById('searchModeBtn').classList.toggle('active',!enabled); document.getElementById('mapClickModeBtn').classList.toggle('active',enabled); document.getElementById('searchInputs').style.display=enabled?'none':'block'; document.getElementById('mapClickInfo').style.display=enabled?'block':'none'; map.getContainer().style.cursor=enabled?'crosshair':''; if(!enabled && document.getElementById('addressInput').value.trim().length>=2) showAddressOnMap(document.getElementById('addressInput').value); 
+        }
         map.on('click', handleMapClick);
         document.getElementById('searchModeBtn').onclick=()=>setMapClickMode(false);
         document.getElementById('mapClickModeBtn').onclick=()=>setMapClickMode(true);
@@ -1292,5 +1325,10 @@
         });
 
     </script>
+
+    <div id="globalModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center;">
+        <div id="globalModalContent" style="background:white; padding:20px; border-radius:12px; width:90%; max-width:400px; box-shadow:0 4px 15px rgba(0,0,0,0.2);"></div>
+    </div>
+    <button id="cancelMapPickBtn" onclick="setMapClickMode(false)" style="display:none; position:fixed; top:20px; right:20px; z-index:10000; padding:10px 20px; background:white; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.3); font-weight:bold; border:none; cursor:pointer;">❌ Отмена</button>
 </body>
 </html>
