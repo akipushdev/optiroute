@@ -435,9 +435,10 @@
         }
 
         async function handleMapClick(e) {
+            const wasPicking = mapClickMode;
             if (document.body.classList.contains('map-picking')) setMapClickMode(false);
 
-            if (!mapClickMode) return;
+            if (!wasPicking) return;
             const { lat, lng } = e.latlng;
             const statusDiv = document.getElementById('scanStatus');
             const original = statusDiv.innerHTML;
