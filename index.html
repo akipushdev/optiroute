@@ -642,15 +642,34 @@
 
         // OCR.space распознавание
         
+        
         window.retryOcrGeo = async (idx) => {
             const input = document.getElementById(`unrec-input-${idx}`);
             const val = input.value.trim();
             if(!val) return;
+            
+            // Если этот адрес уже был добавлен ранее, попробуем удалить его старую версию из Моих Точек
+            const result = window.currentOcrResults.find(r => r.addr === window.currentOcrAddresses[idx]);
+            if (result && result.status === 'success') {
+                const existingIdx = locations.findIndex(l => l.address === result.fullAddr);
+                if (existingIdx !== -1) window.removeLoc(existingIdx);
+            }
+            
+            document.getElementById(`unrec-status-${idx}`).innerHTML = `<span style="color:#f39c12; font-size:11px;">⏳ поиск...</span>`;
+            
             const geo = await geocode(val);
             if (geo) {
                 await addLocation(geo.displayName, geo.lat, geo.lng);
-                document.getElementById(`unrec-${idx}`).innerHTML = `📌 ${val} <span class="status-success" style="color:green; font-size:12px; font-weight:bold;">✓ добавлен</span>`;
+                
+                if (result) {
+                    result.status = 'success';
+                    result.fullAddr = geo.displayName;
+                }
+                
+                document.getElementById(`unrec-status-${idx}`).innerHTML = `<span style="color:green; font-size:11px;">✓ добавлен</span><br><span style="font-size:10px; color:#666;">→ ${geo.displayName.substring(0, 50)}</span>`;
             } else {
+                if (result) result.status = 'failed';
+                document.getElementById(`unrec-status-${idx}`).innerHTML = `<span style="color:#e74c3c; font-size:11px;">❌ не найден</span>`;
                 alert('❌ Снова не найдено. Попробуйте еще сильнее сократить или изменить адрес.');
             }
         };
@@ -671,8 +690,22 @@
             
             window.currentMapClickHandler = async (e) => {
                 const { lat, lng } = e.latlng;
+                
+                // Remove old if exists
+                const result = window.currentOcrResults.find(r => r.addr === window.currentOcrAddresses[idx]);
+                if (result && result.status === 'success') {
+                    const existingIdx = locations.findIndex(l => l.address === result.fullAddr);
+                    if (existingIdx !== -1) window.removeLoc(existingIdx);
+                }
+                
                 await addLocation(val, lat, lng);
-                document.getElementById(`unrec-${idx}`).innerHTML = `📌 ${val} <span class="status-success" style="color:green; font-size:12px; font-weight:bold;">✓ добавлен вручную</span>`;
+                
+                if (result) {
+                    result.status = 'success';
+                    result.fullAddr = val;
+                }
+                
+                document.getElementById(`unrec-status-${idx}`).innerHTML = `<span style="color:green; font-size:11px;">✓ добавлен вручную</span>`;
                 
                 map.off('click', window.currentMapClickHandler);
                 map.on('click', handleMapClick);
@@ -791,13 +824,46 @@
                 
                 // Показываем распознанные адреса
                 recognizedDiv.style.display = 'block';
-                recognizedListDiv.innerHTML = addresses.map(addr => `<div class="recognized-item">📌 ${addr} <span class="recognized-status">(проверка...)</span></div>`).join('');
+                
+                window.renderOcrList = function(addresses, results) {
+                    const listHtml = addresses.map((a, idx) => {
+                        const result = results.find(r => r.addr === a);
+                        let statusHtml = '';
+                        if (result) {
+                            if (result.status === 'success') {
+                                statusHtml = `<span style="color:green; font-size:11px;">✓ добавлен</span><br><span style="font-size:10px; color:#666;">→ ${result.fullAddr.substring(0, 50)}</span>`;
+                            } else {
+                                statusHtml = `<span style="color:#e74c3c; font-size:11px;">❌ не найден</span>`;
+                            }
+                        } else {
+                            statusHtml = `<span style="color:#f39c12; font-size:11px;">⏳ проверка...</span>`;
+                        }
+
+                        return `<div class="recognized-item" id="unrec-${idx}" style="background:#f8f9fa; border:1px solid #ddd; padding:8px; margin-bottom:5px; border-radius:4px;">
+                            <div style="display:flex; align-items:center; gap:5px; margin-bottom:5px;">
+                                📌 <input type="text" id="unrec-input-${idx}" value="${a}" class="location-input" style="padding:4px; font-size:12px; margin:0; flex:1;">
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <div style="flex:1;" id="unrec-status-${idx}">${statusHtml}</div>
+                                <div style="display:flex; gap:5px; font-size:11px; margin-left:10px;">
+                                    <button class="icon-btn" onclick="window.retryOcrGeo(${idx})" style="background:#fff; border:1px solid #ccc; padding:2px 6px; border-radius:4px; cursor:pointer;" title="Пересчитать адрес">🔄 Искать</button>
+                                    <button class="icon-btn" onclick="window.mapPickOcrGeo(${idx})" style="background:#fff; border:1px solid #ccc; padding:2px 6px; border-radius:4px; cursor:pointer;" title="Указать на карте">🗺️ На карте</button>
+                                    <button class="icon-btn" onclick="document.getElementById('unrec-${idx}').remove()" style="background:#fff; border:1px solid #ccc; padding:2px 6px; border-radius:4px; cursor:pointer; color:#e74c3c;">🗑️</button>
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                    document.getElementById('recognizedList').innerHTML = listHtml;
+                };
+
+                let added = 0;
+                window.currentOcrResults = [];
+                window.currentOcrAddresses = addresses;
+                
+                window.renderOcrList(window.currentOcrAddresses, window.currentOcrResults);
                 
                 statusDiv.innerHTML = `🔍 Найдено ${addresses.length} адресов. Добавление в "Мои точки"...`;
                 prog.style.width = '70%';
-                
-                let added = 0;
-                const results = [];
                 
                 for (let i = 0; i < addresses.length; i++) {
                     const addr = addresses[i];
@@ -807,33 +873,14 @@
                     if (geo) {
                         await addLocation(geo.displayName, geo.lat, geo.lng);
                         added++;
-                        results.push({ addr, status: 'success', fullAddr: geo.displayName });
+                        window.currentOcrResults.push({ addr, status: 'success', fullAddr: geo.displayName });
                         statusDiv.innerHTML = `✅ Добавлено ${added}/${addresses.length}: ${addr.substring(0, 40)}...`;
-                        // Обновляем статус в списке
-                        recognizedListDiv.innerHTML = addresses.map((a, idx) => {
-                            const result = results.find(r => r.addr === a);
-                            if (result) {
-                                return `<div class="recognized-item">📌 ${a} <span class="recognized-status status-success">✓ добавлен</span><br><span style="font-size:10px; color:#666;">→ ${result.fullAddr.substring(0, 50)}</span></div>`;
-                            } else if (idx < i) {
-                                return `<div class="recognized-item">📌 ${a} <span class="recognized-status status-failed">✗ не найден</span></div>`;
-                            } else {
-                                return `<div class="recognized-item">📌 ${a} <span class="recognized-status">(проверка...)</span></div>`;
-                            }
-                        }).join('');
                     } else {
-                        results.push({ addr, status: 'failed' });
-                        recognizedListDiv.innerHTML = addresses.map((a, idx) => {
-                            const result = results.find(r => r.addr === a);
-                            if (result && result.status === 'success') {
-                                return `<div class="recognized-item">📌 ${a} <span class="recognized-status status-success">✓ добавлен</span><br><span style="font-size:10px; color:#666;">→ ${result.fullAddr.substring(0, 50)}</span></div>`;
-                            } else if (result && result.status === 'failed') {
-                                return `<div class="recognized-item">📌 ${a} <span class="recognized-status status-failed">✗ не найден на карте</span></div>`;
-                            } else {
-                                return `<div class="recognized-item">📌 ${a} <span class="recognized-status">(проверка...)</span></div>`;
-                            }
-                        }).join('');
+                        window.currentOcrResults.push({ addr, status: 'failed' });
                         console.log('Не удалось геокодировать:', addr);
                     }
+                    window.renderOcrList(window.currentOcrAddresses, window.currentOcrResults);
+                    
                     prog.style.width = `${70 + ((i+1) / addresses.length) * 30}%`;
                     await new Promise(r => setTimeout(r, 150));
                 }
