@@ -498,10 +498,20 @@
             
             updateLocationsUI();
             refreshMapMarkers();
-            if(locations.length >= 2) buildOptimal();
+            window.confirmReoptimize();
         };
 
         
+
+        window.setEndPoint = (address, lat, lng) => {
+            const existingIdx = locations.findIndex(l => l.role === 'end');
+            if (existingIdx !== -1) locations.splice(existingIdx, 1);
+            locations.push({ lat, lng, address, role: 'end', id: Date.now() + Math.random() });
+            
+            updateLocationsUI();
+            refreshMapMarkers();
+            window.confirmReoptimize();
+        };
 
         window.setStartFromInput = async () => {
             const val = document.getElementById('startInput').value;
