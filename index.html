@@ -815,7 +815,7 @@
         window.generateShareText = () => {
             if(!locations.length) return '';
             const needReturn = document.getElementById('returnToStartCheckbox').checked; 
-            let msg = '🚀 https://aipush.dev/optiroute/\n\n📍 *Мой маршрут*\n📌 Точек: '+locations.length+'\n'+(needReturn ? '🔄 С возвратом\n\n' : '➡️ Без возврата\n\n'); 
+            let msg = '📍 *Мой маршрут*\n📌 Точек: '+locations.length+'\n'+(needReturn ? '🔄 С возвратом\n\n' : '➡️ Без возврата\n\n'); 
             const ordered = currentOptimizedOrder || locations; 
             ordered.forEach((loc,i)=>{ 
                 if(loc.completed) {
