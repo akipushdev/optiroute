@@ -213,8 +213,8 @@
         
         // Инициализация карты
         const map = L.map('map').setView([55.751244, 37.618423], 11);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap, CartoDB',
             subdomains: 'abcd',
             maxZoom: 19
         }).addTo(map);
