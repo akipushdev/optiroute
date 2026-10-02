@@ -111,6 +111,7 @@
         
 
     </style>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 </head>
 <body>
     <div class="header">
@@ -427,6 +428,7 @@
             
             container.innerHTML = locations.map((loc, idx) => `
                 <div class="location-item ${idx === 0 ? 'start-point' : ''}">
+                    <span class="drag-handle" style="cursor: grab; font-size: 18px; margin-right: 12px; color: #a0aec0;">☰</span>
                     <div style="flex:1;">
                         <div style="font-weight:600;">${idx+1}. ${loc.address.substring(0, 70)}${idx===0?'<span class="start-badge">Старт</span>':''}</div>
                         <div style="font-size:10px; color:#666;">${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}</div>
@@ -598,9 +600,7 @@
         // OCR.space распознавание
         async function ocrSpaceRecognize(file) {
             const formData = new FormData();
-            const apiKey = getOcrKey();
-            if (!apiKey) throw new Error('API ключ не предоставлен или пароль неверен');
-            formData.append('apikey', apiKey);
+            formData.append('apikey', OCR_API_KEY);
             formData.append('language', 'rus');
             formData.append('isOverlayRequired', 'false');
             formData.append('file', file);
@@ -818,6 +818,32 @@
         
 
         console.log('📍 Все распознанные адреса будут показаны и добавлены в "Мои точки"');
+
+        // Инициализация Drag and Drop для точек
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('locationsContainer');
+            if (typeof Sortable !== 'undefined') {
+                new Sortable(container, {
+                    animation: 150,
+                    handle: '.drag-handle',
+                    ghostClass: 'sortable-ghost',
+                    onEnd: function (evt) {
+                        if (evt.oldIndex === evt.newIndex) return;
+                        const movedItem = locations.splice(evt.oldIndex, 1)[0];
+                        locations.splice(evt.newIndex, 0, movedItem);
+                        updateLocationsUI();
+                        refreshMapMarkers();
+                        clearRoute();
+                        updateQuickStats();
+                        currentOptimizedOrder = null;
+                        
+                        // Если после перетаскивания хотим сразу строить маршрут (опционально)
+                        // buildOptimal();
+                    }
+                });
+            }
+        });
+
     </script>
 </body>
 </html>
