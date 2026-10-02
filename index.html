@@ -123,29 +123,6 @@
             <h2 style="margin-bottom: 20px; font-weight: 800; color: #1e3c72; display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 24px;">🚚</span> OptiRoute <span style="font-size: 14px; font-weight: 500; color: #7f8c8d; background: #f1f2f6; padding: 2px 8px; border-radius: 12px; margin-left: auto;">AI DEMO</span>
             </h2>
-            <h4 style="margin:0 0 10px 0; font-size:14px; color:#1e3c72;">📍 Тело маршрута</h4>
-            <div class="add-location">
-                <div class="mode-toggle">
-                    <button id="searchModeBtn" class="mode-btn active">🔍 Поиск адреса</button>
-                    <button id="mapClickModeBtn" class="mode-btn">🖱️ Клик по карте</button>
-                </div>
-                <div id="searchInputs">
-                    <div class="search-container">
-                        <div class="search-input-wrapper">
-                            <input type="text" id="addressInput" class="location-input" placeholder="Введите адрес или нажмите 🎤" autocomplete="off" />
-                            <div id="suggestions" class="suggestions-dropdown"></div>
-                        </div>
-                        <button id="voiceInputBtn" class="voice-btn" title="Голосовой ввод адреса">🎤</button>
-                    </div>
-                    <div class="instant-tip" id="liveTip">🔍 Введите адрес — маркер на карте | 🎤 Голосовой набор</div>
-                    <div id="livePreviewCard" style="display: none;"></div>
-                    <button id="addBtn" class="btn-primary">➕ Добавить локацию</button>
-                </div>
-                <div id="mapClickInfo" style="display: none; background: #eef2ff; padding: 12px; border-radius: 28px; margin-top: 12px; text-align: center; font-weight: 500;">
-                    🖱️ Режим добавления: кликните по карте — определится точный адрес
-                </div>
-            </div>
-
             <div class="start-end-panel" style="background:#f8f9fa; padding:12px; border-radius:8px; margin-bottom:15px; border:1px solid #e2e8f0;">
                 <h4 style="margin:0 0 10px 0; font-size:14px; color:#1e3c72;">🏁 Старт и финиш маршрута</h4>
                 
@@ -170,6 +147,29 @@
                         <button class="icon-btn" id="endGpsBtn" onclick="window.setEndFromGPS()" style="background:#fff;border:1px solid #ccc;border-radius:4px;" title="Моё местоположение" disabled>📍</button>
                         <button class="btn-primary" id="endSetBtn" onclick="window.setEndFromInput()" style="padding:4px 10px; font-size:12px;" disabled>Задать</button>
                     </div>
+                </div>
+            </div>
+
+            <h4 style="margin:0 0 10px 0; font-size:14px; color:#1e3c72;">📍 Тело маршрута</h4>
+            <div class="add-location">
+                <div class="mode-toggle">
+                    <button id="searchModeBtn" class="mode-btn active">🔍 Поиск адреса</button>
+                    <button id="mapClickModeBtn" class="mode-btn">🖱️ Клик по карте</button>
+                </div>
+                <div id="searchInputs">
+                    <div class="search-container">
+                        <div class="search-input-wrapper">
+                            <input type="text" id="addressInput" class="location-input" placeholder="Введите адрес или нажмите 🎤" autocomplete="off" />
+                            <div id="suggestions" class="suggestions-dropdown"></div>
+                        </div>
+                        <button id="voiceInputBtn" class="voice-btn" title="Голосовой ввод адреса">🎤</button>
+                    </div>
+                    <div class="instant-tip" id="liveTip">🔍 Введите адрес — маркер на карте | 🎤 Голосовой набор</div>
+                    <div id="livePreviewCard" style="display: none;"></div>
+                    <button id="addBtn" class="btn-primary">➕ Добавить локацию</button>
+                </div>
+                <div id="mapClickInfo" style="display: none; background: #eef2ff; padding: 12px; border-radius: 28px; margin-top: 12px; text-align: center; font-weight: 500;">
+                    🖱️ Режим добавления: кликните по карте — определится точный адрес
                 </div>
             </div>
 
