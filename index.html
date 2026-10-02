@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>OptiRoute Pro | OCR.space Распознавание адресов</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.4.2/mammoth.browser.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: #f0f4f9; }
+        .header { background: linear-gradient(135deg, #0b2b44 0%, #1a4a6f 100%); color: white; padding: 12px 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 10; flex-shrink: 0; }
+        .header h1 { font-size: 1.3rem; display: flex; align-items: center; gap: 8px; }
+        .header p { font-size: 0.75rem; opacity: 0.85; margin-top: 4px; }
+        .container { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 520px; background: white; border-right: 1px solid rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+        .add-location { padding: 20px; background: #ffffff; border-bottom: 1px solid #eef2f6; }
+        .mode-toggle { display: flex; gap: 10px; margin-bottom: 18px; background: #f0f3f8; border-radius: 60px; padding: 4px; }
+        .mode-btn { flex: 1; padding: 8px 0; border: none; border-radius: 40px; cursor: pointer; font-size: 13px; font-weight: 600; background: transparent; color: #2c3e66; transition: 0.2s; }
+        .mode-btn.active { background: linear-gradient(95deg, #1a4a6f, #0b2b44); color: white; box-shadow: 0 2px 8px rgba(26,74,111,0.3); }
+        .search-container { position: relative; margin-bottom: 12px; display: flex; gap: 10px; align-items: center; }
+        .search-input-wrapper { flex: 1; position: relative; }
+        .location-input { width: 100%; padding: 14px 18px; border: 2px solid #e2e8f0; border-radius: 32px; font-size: 15px; transition: 0.2s; background: white; }
+        .location-input:focus { outline: none; border-color: #1a4a6f; box-shadow: 0 0 0 3px rgba(26,74,111,0.15); }
+        .voice-btn { background: linear-gradient(135deg, #f39c12, #e67e22); border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 22px; display: flex; align-items: center; justify-content: center; transition: 0.2s; color: white; flex-shrink: 0; }
+        .voice-btn:hover { transform: scale(1.02); }
+        .voice-btn.listening { animation: pulseVoice 1.2s infinite; background: linear-gradient(135deg, #e67e22, #d35400); }
+        @keyframes pulseVoice { 0% { box-shadow: 0 0 0 0 rgba(243,156,18,0.7); } 70% { box-shadow: 0 0 0 12px rgba(243,156,18,0); } 100% { box-shadow: 0 0 0 0 rgba(243,156,18,0); } }
+        .suggestions-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border-radius: 20px; margin-top: 4px; max-height: 280px; overflow-y: auto; z-index: 1100; box-shadow: 0 12px 28px rgba(0,0,0,0.15); display: none; border: 1px solid #eef2f6; }
+        .suggestion-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f0f4fa; }
+        .suggestion-item:hover { background: #eef3ff; }
+        .live-preview-card { background: linear-gradient(115deg, #1e4663, #1f5a82); border-radius: 24px; padding: 14px; margin-top: 12px; color: white; animation: fadeSlideUp 0.25s ease-out; }
+        @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .preview-buttons { display: flex; gap: 10px; margin-top: 10px; }
+        .preview-btn { flex: 1; padding: 8px 0; border: none; border-radius: 40px; font-weight: 600; font-size: 12px; cursor: pointer; }
+        .preview-btn-add { background: white; color: #1e3c72; }
+        .btn-primary { background: linear-gradient(95deg, #1a4a6f, #0e3a58); color: white; width: 100%; padding: 12px; border: none; border-radius: 40px; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 8px; transition: all 0.2s; }
+        .btn-primary:hover { transform: scale(1.01); opacity: 0.95; }
+        .scan-section { margin-top: 18px; background: #f8fafc; padding: 16px; border-radius: 28px; border: 1px solid #e2edf7; }
+        .scan-title { font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #0f2b4f; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .upload-area { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+        .upload-btn { flex: 1; background: #eef3ff; padding: 12px; text-align: center; border-radius: 40px; cursor: pointer; font-size: 13px; font-weight: 600; border: 1px dashed #1a4a6f; transition: 0.2s; }
+        .upload-btn.camera { background: linear-gradient(95deg, #f39c12, #e67e22); border: none; color: white; }
+        .upload-btn:hover { transform: scale(1.01); opacity: 0.9; }
+        input[type="file"] { display: none; }
+        .scan-status { font-size: 12px; margin-top: 10px; color: #2c5a7a; text-align: center; padding: 8px; background: #eef3fc; border-radius: 20px; font-weight: 500; transition: 0.2s; }
+        .return-option { margin-top: 18px; background: #f8fafc; padding: 12px 14px; border-radius: 28px; }
+        .checkbox-label { display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 13px; cursor: pointer; }
+        .stats-panel { background: #eef3ff; padding: 10px 12px; border-radius: 20px; margin-top: 12px; display: flex; justify-content: space-between; font-weight: 500; }
+        .locations-list { flex: 1; padding: 20px; overflow-y: auto; min-height: 280px; max-height: calc(100vh - 580px); }
+        .locations-list h3 { position: sticky; top: 0; background: white; padding-bottom: 8px; z-index: 5; }
+        .location-item { background: #f9fcff; margin-bottom: 12px; padding: 12px 14px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #1a4a6f; transition: 0.1s; }
+        .location-item.start-point { border-left-color: #10b981; background: #f0fdf4; }
+        .start-badge { background: #10b981; color: white; font-size: 9px; padding: 2px 8px; border-radius: 40px; margin-left: 8px; }
+        .icon-btn { background: none; border: none; font-size: 18px; cursor: pointer; padding: 6px 8px; border-radius: 30px; transition: 0.1s; }
+        .icon-btn:hover { background: #eef2fa; }
+        .route-actions { padding: 20px; border-top: 1px solid #eef2f8; display: flex; gap: 12px; flex-wrap: wrap; background: white; flex-shrink: 0; }
+        .btn-success { background: linear-gradient(105deg, #0f5c3e, #0b4630); color: white; padding: 12px; border-radius: 40px; flex: 1; font-weight: bold; border: none; cursor: pointer; }
+        .btn-danger { background: #b91c1c; color: white; padding: 12px 16px; border-radius: 40px; border: none; cursor: pointer; font-weight: bold; }
+        .btn-share { background: linear-gradient(105deg, #3b82f6, #2563eb); color: white; padding: 12px; border-radius: 40px; flex: 1; font-weight: bold; border: none; cursor: pointer; }
+        .map-container { flex: 1; position: relative; min-width: 0; }
+        #map { height: 100%; width: 100%; }
+        .info-panel { position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.96); backdrop-filter: blur(12px); padding: 18px; border-radius: 28px; box-shadow: 0 12px 28px rgba(0,0,0,0.2); z-index: 1000; min-width: 320px; max-width: 420px; font-size: 13px; border-right: 4px solid #f39c12; max-height: 65vh; overflow-y: auto; }
+        .preview-marker-icon { background: rgba(26,74,111,0.85); border: 3px solid #ffc107; border-radius: 50%; width: 44px; height: 44px; animation: pulse 0.9s infinite; }
+        @keyframes pulse { 0% { transform: scale(0.8); opacity: 0.9; } 100% { transform: scale(1.2); opacity: 0.2; } }
+        .nav-selector { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+        .nav-btn { flex: 1; padding: 10px 8px; border: none; border-radius: 30px; font-size: 12px; font-weight: 600; cursor: pointer; background: #eef3ff; color: #1e3c72; transition: 0.2s; }
+        .nav-btn:hover { background: #1a4a6f; color: white; }
+        .send-route-btn, .share-btn { background: linear-gradient(105deg, #f39c12, #e67e22); color: white; padding: 12px; border-radius: 40px; font-weight: bold; border: none; cursor: pointer; width: 100%; margin-top: 12px; }
+        .progress-bar { height: 4px; background: #f39c12; width: 0%; transition: width 0.25s ease; margin-top: 8px; border-radius: 4px; }
+        .marker-number { background: #1a4a6f; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .loading-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff; border-radius: 50%; border-top-color: transparent; animation: spin 0.6s linear infinite; margin-right: 6px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .instant-tip { font-size: 11px; color: #5a7a9a; margin-top: 8px; text-align: center; background: #eef3fc; padding: 6px; border-radius: 20px; }
+        .messenger-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+        .messenger-btn { padding: 8px; border-radius: 40px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; transition: 0.2s; color: white; }
+        .ai-badge { background: #10b981; color: white; border-radius: 20px; padding: 2px 8px; font-size: 10px; margin-left: 8px; }
+        
+        .camera-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: black;
+            z-index: 10000;
+            flex-direction: column;
+        }
+        .camera-modal.active { display: flex; }
+        .camera-video { width: 100%; height: calc(100% - 80px); object-fit: cover; background: black; }
+        .camera-controls { height: 80px; background: #1a1a2e; display: flex; justify-content: center; align-items: center; gap: 30px; }
+        .camera-capture-btn { width: 70px; height: 70px; border-radius: 50%; background: white; border: 4px solid #f39c12; cursor: pointer; }
+        .camera-capture-btn:hover { transform: scale(1.05); background: #f39c12; }
+        .camera-close-btn { padding: 12px 24px; background: #e74c3c; color: white; border: none; border-radius: 40px; cursor: pointer; }
+        .camera-switch-btn { padding: 12px 24px; background: #3498db; color: white; border: none; border-radius: 40px; cursor: pointer; }
+        
+        .success-badge { background: #27ae60; color: white; border-radius: 20px; padding: 2px 8px; font-size: 10px; margin-left: 8px; }
+        .recognized-addresses { margin-top: 15px; background: #f0f7ff; border-radius: 16px; padding: 12px; border: 1px solid #c5d5ea; }
+        .recognized-title { font-weight: 700; font-size: 12px; margin-bottom: 8px; color: #1a4a6f; }
+        .recognized-item { font-size: 11px; padding: 4px 8px; background: white; margin: 4px 0; border-radius: 12px; border-left: 3px solid #f39c12; word-break: break-all; }
+        .recognized-status { font-size: 10px; color: #666; margin-left: 8px; }
+        .status-success { color: #27ae60; }
+        .status-failed { color: #e74c3c; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 OptiRoute Pro • OCR.space Распознавание адресов</h1>
+        <p>🎤 Голосовой ввод | 📄 PDF, DOCX, XLSX, JPG, PNG | 📷 OCR.space извлекает и добавляет ВСЕ адреса в "Мои точки"</p>
+    </div>
+    <div class="container">
+        <div class="sidebar">
+            <div class="add-location">
+                <div class="mode-toggle">
+                    <button id="searchModeBtn" class="mode-btn active">🔍 Поиск адреса</button>
+                    <button id="mapClickModeBtn" class="mode-btn">🖱️ Клик по карте</button>
+                </div>
+                <div id="searchInputs">
+                    <div class="search-container">
+                        <div class="search-input-wrapper">
+                            <input type="text" id="addressInput" class="location-input" placeholder="Введите адрес или нажмите 🎤" autocomplete="off" />
+                            <div id="suggestions" class="suggestions-dropdown"></div>
+                        </div>
+                        <button id="voiceInputBtn" class="voice-btn" title="Голосовой ввод адреса">🎤</button>
+                    </div>
+                    <div class="instant-tip" id="liveTip">🔍 Введите адрес — маркер на карте | 🎤 Голосовой набор</div>
+                    <div id="livePreviewCard" style="display: none;"></div>
+                    <button id="addBtn" class="btn-primary">➕ Добавить локацию</button>
+                </div>
+                <div id="mapClickInfo" style="display: none; background: #eef2ff; padding: 12px; border-radius: 28px; margin-top: 12px; text-align: center; font-weight: 500;">
+                    🖱️ Режим добавления: кликните по карте — определится точный адрес
+                </div>
+                <button id="geolocationBtn" class="btn-primary" style="background:#eef3fc; color:#1e3c72; margin-top: 12px;">📍 Моё местоположение (точный адрес)</button>
+                
+                <div class="scan-section">
+                    <div class="scan-title">
+                        🔍 OCR.space РАСПОЗНАВАНИЕ
+                        <span class="ai-badge">OCR</span>
+                        <span class="success-badge">Авто-добавление</span>
+                    </div>
+                    <div class="upload-area">
+                        <button id="openCameraBtn" class="upload-btn camera" style="background: linear-gradient(95deg, #f39c12, #e67e22); color: white; border: none;">📷 СФОТОГРАФИРОВАТЬ</button>
+                        <label class="upload-btn" id="fileLabel">📎 ВЫБРАТЬ ФАЙЛ</label>
+                    </div>
+                    <input type="file" id="fileUploadInput" accept=".pdf,.docx,.xlsx,.xls,.txt,.csv,.jpg,.jpeg,.png">
+                    <div id="scanStatus" class="scan-status">✨ OCR.space распознаёт адреса и автоматически добавляет их в "Мои точки"</div>
+                    <div id="progressBar" class="progress-bar"></div>
+                    <div id="recognizedAddressesList" class="recognized-addresses" style="display: none;">
+                        <div class="recognized-title">📋 РАСПОЗНАННЫЕ АДРЕСА:</div>
+                        <div id="recognizedList"></div>
+                    </div>
+                </div>
+                
+                <div class="return-option">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="returnToStartCheckbox" checked>
+                        <span>🔄 Вернуться в начальную точку (замкнуть маршрут)</span>
+                    </label>
+                    <div class="stats-panel" id="quickStats" style="display: none;">
+                        <span>📌 Точек: <span id="quickPointsCount">0</span></span>
+                        <span>📏 Расстояние: <span id="quickDistance">0 км</span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="locations-list">
+                <h3 style="margin-bottom: 14px;">🗺️ Мои точки (<span id="locationCount">0</span>)</h3>
+                <div id="locationsContainer" style="max-height: 400px; overflow-y: auto;"></div>
+            </div>
+            <div class="route-actions">
+                <button id="optimizeRouteBtn" class="btn-success">✨ Оптимальный маршрут</button>
+                <button id="shareRouteBtn" class="btn-share">📤 Поделиться</button>
+                <button id="clearAllBtn" class="btn-danger">🗑️ Очистить всё</button>
+            </div>
+        </div>
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="info-panel" id="infoPanel">
+                <div style="font-weight: 800;">📊 Маршрутный центр</div>
+                <div style="margin-top: 6px;">💡 Кликните по карте для добавления точки с точным адресом</div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="cameraModal" class="camera-modal">
+        <video id="cameraVideo" class="camera-video" autoplay playsinline></video>
+        <div class="camera-controls">
+            <button id="cameraSwitchBtn" class="camera-switch-btn">🔄 Переключить</button>
+            <button id="cameraCaptureBtn" class="camera-capture-btn"></button>
+            <button id="cameraCloseBtn" class="camera-close-btn">✖ Закрыть</button>
+        </div>
+    </div>
+
+    <script>
+        // Конфигурация OCR.space API
+        const OCR_API_URL = 'https://api.ocr.space/parse/image';
+        const OCR_API_KEY = 'K89237002688957';
+        
+        // Инициализация карты
+        const map = L.map('map').setView([55.751244, 37.618423], 11);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap, CartoDB',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        let locations = [];
+        let markers = [];
+        let routingControl = null;
+        let mapClickMode = false;
+        let returnToStart = true;
+        let currentPreviewMarker = null;
+        let currentPreviewData = null;
+        let currentOptimizedOrder = null;
+        let searchTimeout = null;
+        let recognition = null;
+        
+        const geocodeCache = new Map();
+        const reverseGeocodeCache = new Map();
+        let lastRequestTime = 0;
+        const MIN_REQUEST_INTERVAL = 1000;
+
+        // Камера
+        const cameraModal = document.getElementById('cameraModal');
+        const cameraVideo = document.getElementById('cameraVideo');
+        const openCameraBtn = document.getElementById('openCameraBtn');
+        const cameraCaptureBtn = document.getElementById('cameraCaptureBtn');
+        const cameraCloseBtn = document.getElementById('cameraCloseBtn');
+        const cameraSwitchBtn = document.getElementById('cameraSwitchBtn');
+        let currentStream = null;
+        let currentFacingMode = 'environment';
+        
+        async function openCamera() {
+            try {
+                if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+                try {
+                    currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: currentFacingMode } } });
+                } catch {
+                    currentStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                }
+                cameraVideo.srcObject = currentStream;
+                cameraModal.classList.add('active');
+            } catch (err) {
+                document.getElementById('scanStatus').innerHTML = '❌ Не удалось открыть камеру';
+                alert('Разрешите доступ к камере');
+            }
+        }
+        
+        async function switchCamera() {
+            currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+            await openCamera();
+        }
+        
+        async function capturePhoto() {
+            if (!cameraVideo.videoWidth) return;
+            const canvas = document.createElement('canvas');
+            canvas.width = cameraVideo.videoWidth;
+            canvas.height = cameraVideo.videoHeight;
+            canvas.getContext('2d').drawImage(cameraVideo, 0, 0);
+            canvas.toBlob(async (blob) => {
+                if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+                cameraModal.classList.remove('active');
+                const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                await processFile(file, true);
+            }, 'image/jpeg', 0.9);
+        }
+        
+        function closeCamera() {
+            if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+            cameraModal.classList.remove('active');
+        }
+        
+        openCameraBtn?.addEventListener('click', openCamera);
+        cameraCaptureBtn?.addEventListener('click', capturePhoto);
+        cameraCloseBtn?.addEventListener('click', closeCamera);
+        cameraSwitchBtn?.addEventListener('click', switchCamera);
+
+        // Voice recognition
+        function initVoiceRecognition() {
+            if (!('webkitSpeechRecognition' in window)) return null;
+            const recog = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recog.lang = 'ru-RU';
+            recog.interimResults = false;
+            return recog;
+        }
+
+        async function startVoiceInput() {
+            if (!recognition) recognition = initVoiceRecognition();
+            if (!recognition) { alert('Голосовой ввод не поддерживается'); return; }
+            const voiceBtn = document.getElementById('voiceInputBtn');
+            voiceBtn.classList.add('listening');
+            voiceBtn.innerHTML = '⏺';
+            recognition.onresult = async (event) => {
+                const text = event.results[0][0].transcript;
+                document.getElementById('addressInput').value = text;
+                voiceBtn.classList.remove('listening');
+                voiceBtn.innerHTML = '🎤';
+                await showAddressOnMap(text);
+            };
+            recognition.onerror = () => {
+                voiceBtn.classList.remove('listening');
+                voiceBtn.innerHTML = '🎤';
+            };
+            recognition.start();
+        }
+
+        async function geocode(query, retry = 0) {
+            if (!query || query.trim().length < 3) return null;
+            const norm = query.trim().toLowerCase();
+            if (geocodeCache.has(norm)) return geocodeCache.get(norm);
+            const now = Date.now();
+            const wait = Math.max(0, MIN_REQUEST_INTERVAL - (now - lastRequestTime));
+            if (wait > 0) await new Promise(r => setTimeout(r, wait));
+            try {
+                lastRequestTime = Date.now();
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1&accept-language=ru`;
+                const res = await fetch(url, { headers: { 'User-Agent': 'OptiRoutePro/2.0' } });
+                if (res.status === 429) { await new Promise(r => setTimeout(r, 3000)); if (retry < 2) return geocode(query, retry + 1); return null; }
+                const data = await res.json();
+                if (data && data.length) {
+                    const result = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), displayName: data[0].display_name };
+                    geocodeCache.set(norm, result);
+                    return result;
+                }
+                return null;
+            } catch(e) { if (retry < 2) { await new Promise(r => setTimeout(r, 2000)); return geocode(query, retry + 1); } return null; }
+        }
+
+        async function reverseGeocode(lat, lng) {
+            const cacheKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+            if (reverseGeocodeCache.has(cacheKey)) return reverseGeocodeCache.get(cacheKey);
+            try {
+                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=ru`;
+                const res = await fetch(url, { headers: { 'User-Agent': 'OptiRoutePro/2.0' } });
+                const data = await res.json();
+                let address = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+                if (data.address) {
+                    const parts = [];
+                    if (data.address.road) parts.push(data.address.road);
+                    if (data.address.house_number) parts.push(data.address.house_number);
+                    if (data.address.city || data.address.town) parts.push(data.address.city || data.address.town);
+                    if (parts.length) address = parts.join(', ');
+                }
+                reverseGeocodeCache.set(cacheKey, address);
+                return address;
+            } catch(e) { return `${lat.toFixed(5)}, ${lng.toFixed(5)}`; }
+        }
+
+        async function showAddressOnMap(query) {
+            if (mapClickMode) return;
+            if (!query || query.trim().length < 2) { clearPreview(); return; }
+            const geo = await geocode(query);
+            if (geo) {
+                if (currentPreviewMarker) currentPreviewMarker.remove();
+                const previewIcon = L.divIcon({ className: 'preview-marker-icon', iconSize: [44, 44] });
+                currentPreviewMarker = L.marker([geo.lat, geo.lng], { icon: previewIcon }).addTo(map);
+                currentPreviewMarker.bindPopup(`<b>📍 Найден адрес</b><br>${geo.displayName.substring(0, 80)}<br><button onclick="window.addFromPreview()" style="background:#1a4a6f;color:white;border:none;padding:6px 14px;border-radius:20px;">✅ Добавить</button>`).openPopup();
+                currentPreviewData = { lat: geo.lat, lng: geo.lng, address: geo.displayName };
+                map.flyTo([geo.lat, geo.lng], 14);
+                document.getElementById('livePreviewCard').style.display = 'block';
+                document.getElementById('livePreviewCard').innerHTML = `<div class="live-preview-card"><div>✨ ${geo.displayName.substring(0, 65)}</div><div class="preview-buttons"><button class="preview-btn preview-btn-add" onclick="window.addFromPreview()">✅ Добавить</button></div></div>`;
+            }
+        }
+
+        window.addFromPreview = async () => { if (currentPreviewData) { await addLocation(currentPreviewData.address, currentPreviewData.lat, currentPreviewData.lng); clearPreview(); document.getElementById('addressInput').value = ''; } };
+        function clearPreview() { if (currentPreviewMarker) { currentPreviewMarker.remove(); currentPreviewMarker = null; } currentPreviewData = null; document.getElementById('livePreviewCard').style.display = 'none'; }
+
+        async function addLocation(address, lat = null, lng = null) {
+            let finalLat, finalLng, finalAddr;
+            if (lat !== null && lng !== null) { 
+                finalLat = lat; 
+                finalLng = lng; 
+                finalAddr = address || await reverseGeocode(lat, lng); 
+            } else { 
+                const geo = await geocode(address); 
+                if (!geo) return false; 
+                finalLat = geo.lat; 
+                finalLng = geo.lng; 
+                finalAddr = geo.displayName; 
+            }
+            
+            locations.push({ lat: finalLat, lng: finalLng, address: finalAddr });
+            updateLocationsUI();
+            refreshMapMarkers();
+            clearRoute();
+            updateQuickStats();
+            currentOptimizedOrder = null;
+            return true;
+        }
+
+        async function handleMapClick(e) {
+            if (!mapClickMode) return;
+            const { lat, lng } = e.latlng;
+            const statusDiv = document.getElementById('scanStatus');
+            const original = statusDiv.innerHTML;
+            statusDiv.innerHTML = '<span class="loading-spinner"></span> Определение адреса...';
+            try { const address = await reverseGeocode(lat, lng); await addLocation(address, lat, lng); statusDiv.innerHTML = `✅ Добавлено: ${address.substring(0, 45)}...`; setTimeout(() => statusDiv.innerHTML = original, 2000); } 
+            catch { statusDiv.innerHTML = '❌ Ошибка адреса'; setTimeout(() => statusDiv.innerHTML = original, 2000); }
+        }
+
+        async function getUserLocation() {
+            if (!navigator.geolocation) { alert('Геолокация не поддерживается'); return; }
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const address = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+                await addLocation(address, pos.coords.latitude, pos.coords.longitude);
+                map.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
+            }, () => alert('Ошибка геолокации'));
+        }
+
+        function updateLocationsUI() {
+            const container = document.getElementById('locationsContainer');
+            const countSpan = document.getElementById('locationCount');
+            countSpan.innerText = locations.length;
+            
+            if (!locations.length) { 
+                container.innerHTML = '<div style="text-align:center;color:#6c757d;padding:32px;">Нет добавленных точек</div>'; 
+                return; 
+            }
+            
+            container.innerHTML = locations.map((loc, idx) => `
+                <div class="location-item ${idx === 0 ? 'start-point' : ''}">
+                    <div style="flex:1;">
+                        <div style="font-weight:600;">${idx+1}. ${loc.address.substring(0, 70)}${idx===0?'<span class="start-badge">Старт</span>':''}</div>
+                        <div style="font-size:10px; color:#666;">${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}</div>
+                    </div>
+                    <div>
+                        ${idx !== 0 ? `<button class="icon-btn" onclick="window.setAsStart(${idx})" title="Сделать стартовой">⭐</button>` : ''}
+                        <button class="icon-btn" onclick="window.centerOnLoc(${idx})" title="Центрировать">📍</button>
+                        <button class="icon-btn" onclick="window.removeLoc(${idx})" title="Удалить">❌</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        window.removeLoc = (i) => { 
+            locations.splice(i,1); 
+            updateLocationsUI(); 
+            refreshMapMarkers(); 
+            clearRoute(); 
+            updateQuickStats(); 
+            currentOptimizedOrder = null; 
+        };
+        window.setAsStart = (i) => { 
+            if(i===0) return; 
+            const [item] = locations.splice(i,1); 
+            locations.unshift(item); 
+            updateLocationsUI(); 
+            refreshMapMarkers(); 
+            clearRoute(); 
+            updateQuickStats(); 
+            currentOptimizedOrder = null; 
+        };
+        window.centerOnLoc = (i) => { 
+            const l = locations[i]; 
+            if(l) map.flyTo([l.lat, l.lng], 15); 
+        };
+        
+        function refreshMapMarkers() { 
+            markers.forEach(m => m.remove()); 
+            markers = []; 
+            locations.forEach((loc, i) => { 
+                const numIcon = L.divIcon({ 
+                    html: `<div class="marker-number" style="background:${i===0?'#10b981':'#1a4a6f'};">${i+1}</div>`, 
+                    className: 'custom-numbered-marker', 
+                    iconSize: [30,30], 
+                    popupAnchor: [0,-15] 
+                }); 
+                const m = L.marker([loc.lat, loc.lng], { icon: numIcon }).bindPopup(`<b>${i+1}. ${loc.address.substring(0,60)}</b><br><button onclick="window.removeLoc(${i})" style="background:#e74c3c;color:white;border:none;padding:4px 12px;border-radius:20px;margin-top:5px;cursor:pointer;">🗑 Удалить</button>`); 
+                m.addTo(map); 
+                markers.push(m); 
+            }); 
+            if(locations.length && !routingControl && !currentPreviewMarker) {
+                const bounds = L.latLngBounds(locations.map(l => [l.lat, l.lng]));
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        }
+        
+        function clearRoute() { if(routingControl) { routingControl.remove(); routingControl = null; } }
+        function haversine(lat1,lng1,lat2,lng2) { const R=6371; const dLat=(lat2-lat1)*Math.PI/180; const dLng=(lng2-lng1)*Math.PI/180; const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2; return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
+        function tspOrder(points) { if(points.length<=1) return points.map((_,i)=>i); let unvisited = [...Array(points.length).keys()]; let start = unvisited.shift(); let route = [start]; while(unvisited.length) { let last = route[route.length-1]; let nearest = unvisited.reduce((best, idx) => { let d = haversine(points[last].lat, points[last].lng, points[idx].lat, points[idx].lng); return d < best.d ? {idx, d} : best; }, {idx: unvisited[0], d: Infinity}); route.push(nearest.idx); unvisited = unvisited.filter(i=>i!==nearest.idx); } for(let improved=true; improved;) { improved=false; for(let i=1;i<route.length-2;i++) for(let j=i+1;j<route.length-1;j++) { let a=route[i-1],b=route[i],c=route[j],d=route[j+1]; let before=haversine(points[a].lat,points[a].lng,points[b].lat,points[b].lng)+haversine(points[c].lat,points[c].lng,points[d].lat,points[d].lng); let after=haversine(points[a].lat,points[a].lng,points[c].lat,points[c].lng)+haversine(points[b].lat,points[b].lng,points[d].lat,points[d].lng); if(after<before) { route = [...route.slice(0,i), ...route.slice(i,j+1).reverse(), ...route.slice(j+1)]; improved=true; } } } return route; }
+        
+        function openInNavigator(url) { window.open(url, '_blank'); }
+        function showNavigationOptions(orderedPoints, needReturn) { 
+            if(!orderedPoints || orderedPoints.length === 0) return;
+            const points = needReturn ? [...orderedPoints, orderedPoints[0]] : orderedPoints;
+            const start = points[0];
+            const yandexUrl = `https://yandex.ru/navi/?mode=waypoints&pt=${points.map(p => `${p.lng},${p.lat}`).join('~')}`;
+            let googleUrl = `https://www.google.com/maps/dir/${start.lat},${start.lng}`;
+            for(let i = 1; i < points.length; i++) googleUrl += `/${points[i].lat},${points[i].lng}`;
+            const wazeUrl = `https://www.waze.com/ul?ll=${start.lat},${start.lng}&navigate=yes`;
+            const navHtml = `<div style="margin-top:12px;"><div style="font-weight:800;">🗺️ ОТКРЫТЬ В НАВИГАТОРЕ:</div><div class="nav-selector"><button class="nav-btn" data-url="${encodeURIComponent(yandexUrl)}">🚕 Яндекс</button><button class="nav-btn" data-url="${encodeURIComponent(googleUrl)}">🗺️ Google</button><button class="nav-btn" data-url="${encodeURIComponent(wazeUrl)}">🛣️ Waze</button></div></div>`;
+            const panel = document.getElementById('infoPanel');
+            const existing = panel.querySelector('.nav-selector-container');
+            if(existing) existing.remove();
+            const container = document.createElement('div');
+            container.className = 'nav-selector-container';
+            container.innerHTML = navHtml;
+            panel.appendChild(container);
+            document.querySelectorAll('.nav-btn').forEach(btn => { btn.onclick = () => openInNavigator(decodeURIComponent(btn.getAttribute('data-url'))); });
+        }
+        
+        async function buildOptimal() { 
+            if(locations.length<2) { alert('Минимум 2 точки'); return; } 
+            clearRoute(); 
+            const needReturn = document.getElementById('returnToStartCheckbox').checked; 
+            const orderIdx = tspOrder(locations); 
+            const ordered = orderIdx.map(i => locations[i]); 
+            currentOptimizedOrder = ordered; 
+            let waypoints = ordered.map(p => L.latLng(p.lat, p.lng)); 
+            if(needReturn && ordered.length>1) waypoints.push(L.latLng(ordered[0].lat, ordered[0].lng)); 
+            routingControl = L.Routing.control({ waypoints, router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }), lineOptions: { styles: [{ color: '#ff7b2c', weight: 5 }] }, show: false }).addTo(map); 
+            routingControl.on('routesfound', (e) => { 
+                const route = e.routes[0]; 
+                const distKm = (route.summary.totalDistance / 1000).toFixed(1); 
+                const minutes = Math.round(route.summary.totalTime / 60); 
+                const timeStr = minutes >= 60 ? `${Math.floor(minutes/60)} ч ${minutes%60} мин` : `${minutes} мин`; 
+                let orderHtml = ordered.map((l,i)=>`${i+1}. ${l.address.substring(0,45)}`).join('<br>'); 
+                if(needReturn) orderHtml += '<br>↺ Вернуться на старт'; 
+                document.getElementById('infoPanel').innerHTML = `<div style="font-weight:800;">✅ Оптимальный маршрут</div><div>📏 ${distKm} км | ⏱️ ${timeStr}<br>🔄 ${needReturn ? 'С возвратом' : 'Без возврата'}</div><div><strong>📌 Порядок:</strong><br>${orderHtml}</div><button id="sendToNavBtn" class="send-route-btn">🗺️ ОТПРАВИТЬ В НАВИГАТОР</button><button id="shareRouteBtnPanel" class="share-btn">📤 ПОДЕЛИТЬСЯ</button>`; 
+                document.getElementById('sendToNavBtn')?.addEventListener('click', () => showNavigationOptions(currentOptimizedOrder, needReturn)); 
+                document.getElementById('shareRouteBtnPanel')?.addEventListener('click', () => shareRoute()); 
+            }); 
+            map.fitBounds(L.latLngBounds(waypoints.map(w=>[w.lat,w.lng])), {padding:[60,60]}); 
+        }
+        
+        function shareRoute() { 
+            if(!locations.length) return; 
+            const needReturn = document.getElementById('returnToStartCheckbox').checked; 
+            let msg = '📍 *Мой маршрут*\n📌 Точек: '+locations.length+'\n'+(needReturn ? '🔄 С возвратом\n\n' : '➡️ Без возврата\n\n'); 
+            const ordered = currentOptimizedOrder || locations; 
+            ordered.forEach((loc,i)=>{ msg+=`${i+1}. ${loc.address.substring(0,70)}\n   https://maps.google.com/?q=${loc.lat},${loc.lng}\n`; }); 
+            if(needReturn && ordered.length>1) msg+=`↺ Возврат: ${ordered[0].address.substring(0,60)}\n`; 
+            const enc = encodeURIComponent(msg); 
+            const shareHtml = `<div style="margin-top:12px;"><div style="font-weight:800;">📤 ОТПРАВИТЬ В МЕССЕНДЖЕРЫ:</div><div class="messenger-grid"><button id="tgShare" style="background:#26A5E4;">📨 Telegram</button><button id="waShare" style="background:#25D366;">💬 WhatsApp</button><button id="copyRouteBtn" style="background:#6c757d;">📋 Копировать</button></div></div>`;
+            const panel = document.getElementById('infoPanel'); 
+            if(!panel.querySelector('#tgShare')){ 
+                panel.innerHTML += shareHtml; 
+                document.getElementById('tgShare')?.addEventListener('click',()=>window.open(`https://t.me/share/url?url=${encodeURIComponent('https://optr.pro')}&text=${enc}`,'_blank')); 
+                document.getElementById('waShare')?.addEventListener('click',()=>window.open(`https://wa.me/?text=${enc}`,'_blank')); 
+                document.getElementById('copyRouteBtn')?.addEventListener('click',()=>{ navigator.clipboard.writeText(msg.replace(/\*/g, '')); document.getElementById('scanStatus').innerHTML = '📋 Маршрут скопирован!'; setTimeout(()=>document.getElementById('scanStatus').innerHTML='✨ Готов к новым маршрутам',2000); }); 
+            } 
+        }
+        
+        function updateQuickStats() { 
+            const panelDiv = document.getElementById('quickStats'); 
+            if(locations.length>=2) { 
+                let total=0; 
+                for(let i=0;i<locations.length-1;i++) total+=haversine(locations[i].lat,locations[i].lng,locations[i+1].lat,locations[i+1].lng); 
+                if(returnToStart && locations.length>1) total+=haversine(locations[locations.length-1].lat,locations[locations.length-1].lng,locations[0].lat,locations[0].lng); 
+                document.getElementById('quickPointsCount').innerText=locations.length; 
+                document.getElementById('quickDistance').innerText=total.toFixed(1)+' км'; 
+                panelDiv.style.display='flex'; 
+            } else panelDiv.style.display='none'; 
+        }
+
+        // Функция извлечения адресов из текста
+        function extractAddressesFromText(text) {
+            const addresses = new Set();
+            
+            const patterns = [
+                /(?:г\.?\s*[А-ЯЁ][а-яё]+(?:[-\s][А-ЯЁ][а-яё]+)?\s*[,.]?\s*)?(?:ул\.|улица|пр\.|проспект|пер\.|переулок|бульвар|наб\.|шоссе|пл\.|площадь)\s+[А-ЯЁ][а-яё]+(?:[-\s][А-ЯЁа-яё]+)?[\s,]+(?:д\.?\s*)?\d+(?:\s*к\.?\s*\d+)?/gi,
+                /(?:ул\.|улица|пр\.|проспект|пер\.|переулок|бульвар|наб\.|шоссе)\s+[А-ЯЁ][а-яё]+(?:[-\s][А-ЯЁа-яё]+)?[\s,]+(?:д\.?\s*)?\d+(?:\s*к\.?\s*\d+)?/gi,
+                /[А-ЯЁ][а-яё]+(?:ская|ский|ское|цкая)\s+(?:ул\.?|улица)?\s*[А-ЯЁа-яё]+\s+\d+(?:\s*[\/\-]\s*\d+)?/gi,
+                /\d{6}\s*[,.]?\s*(?:г\.?\s*)?[А-ЯЁ][а-яё]+(?:[-\s][А-ЯЁа-яё]+)?[\s,]+(?:ул\.|улица|пр\.|проспект)[^,\n]{5,70}/gi
+            ];
+            
+            for (const pattern of patterns) {
+                const matches = text.match(pattern);
+                if (matches) matches.forEach(m => addresses.add(m.trim()));
+            }
+            
+            const lines = text.split(/\r?\n/);
+            for (const line of lines) {
+                const clean = line.trim();
+                const hasStreetIndicator = /ул\.|улица|пр\.|проспект|пер\.|переулок|бульвар|шоссе|наб\.|площадь/i.test(clean);
+                const hasNumber = /\d+/.test(clean);
+                const hasRussian = /[А-ЯЁ]/.test(clean);
+                
+                if (hasStreetIndicator && hasNumber && hasRussian && clean.length > 8 && clean.length < 150) {
+                    addresses.add(clean);
+                }
+            }
+            
+            return Array.from(addresses)
+                .filter(addr => addr.length > 6 && addr.length < 150)
+                .map(addr => addr.replace(/\s+/g, ' ').trim())
+                .slice(0, 20);
+        }
+
+        // OCR.space распознавание
+        async function ocrSpaceRecognize(file) {
+            const formData = new FormData();
+            formData.append('apikey', OCR_API_KEY);
+            formData.append('language', 'rus');
+            formData.append('isOverlayRequired', 'false');
+            formData.append('file', file);
+            
+            const response = await fetch(OCR_API_URL, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) throw new Error(`OCR API error: ${response.status}`);
+            const result = await response.json();
+            console.log('OCR Response:', result);
+            
+            if (result.IsErroredOnProcessing) throw new Error(result.ErrorMessage || 'OCR processing error');
+            
+            let parsedText = '';
+            if (result.ParsedResults && result.ParsedResults.length) {
+                parsedText = result.ParsedResults.map(r => r.ParsedText).join('\n');
+            }
+            if (!parsedText || parsedText.trim().length < 5) throw new Error('No text recognized');
+            return parsedText;
+        }
+
+        // Извлечение текста из документов
+        async function extractTextFromDocument(file) {
+            const name = file.name.toLowerCase();
+            let text = '';
+            
+            if (name.endsWith('.pdf')) {
+                const ab = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+                for (let i = 1; i <= Math.min(pdf.numPages, 15); i++) {
+                    const page = await pdf.getPage(i);
+                    const tc = await page.getTextContent();
+                    text += tc.items.map(it => it.str).join(' ') + '\n';
+                }
+            } else if (name.endsWith('.docx')) {
+                const ab = await file.arrayBuffer();
+                const res = await mammoth.extractRawText({ arrayBuffer: ab });
+                text = res.value;
+            } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+                const ab = await file.arrayBuffer();
+                const wb = XLSX.read(ab, { type: 'array' });
+                wb.SheetNames.forEach(sn => {
+                    const sheet = wb.Sheets[sn];
+                    const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+                    data.forEach(row => {
+                        text += row.filter(c => c && typeof c === 'string').join(' ') + '\n';
+                    });
+                });
+            } else {
+                text = await file.text();
+            }
+            return text.substring(0, 20000);
+        }
+
+        // Основная обработка файла - ВСЕ РАСПОЗНАННЫЕ АДРЕСА ДОБАВЛЯЮТСЯ В "МОИ ТОЧКИ"
+        async function processFile(file, isImage = false) {
+            const statusDiv = document.getElementById('scanStatus');
+            const prog = document.getElementById('progressBar');
+            const recognizedDiv = document.getElementById('recognizedAddressesList');
+            const recognizedListDiv = document.getElementById('recognizedList');
+            const fileName = file.name.length > 40 ? file.name.substring(0, 37) + '...' : file.name;
+            
+            statusDiv.innerHTML = `🔍 Обработка: ${fileName}...`;
+            prog.style.width = '10%';
+            recognizedDiv.style.display = 'none';
+            
+            try {
+                let parsedText = '';
+                const isImageFile = isImage || file.type.startsWith('image/');
+                
+                if (isImageFile) {
+                    statusDiv.innerHTML = `📸 OCR.space распознавание изображения: ${fileName}...`;
+                    prog.style.width = '30%';
+                    parsedText = await ocrSpaceRecognize(file);
+                    prog.style.width = '60%';
+                } else {
+                    statusDiv.innerHTML = `📄 Чтение документа: ${fileName}...`;
+                    prog.style.width = '30%';
+                    parsedText = await extractTextFromDocument(file);
+                    prog.style.width = '60%';
+                }
+                
+                if (!parsedText || parsedText.trim().length < 10) {
+                    statusDiv.innerHTML = `⚠️ Не удалось распознать текст в файле "${fileName}"`;
+                    prog.style.width = '0%';
+                    return;
+                }
+                
+                console.log('Распознанный текст (первые 500 символов):', parsedText.substring(0, 500));
+                
+                const addresses = extractAddressesFromText(parsedText);
+                
+                if (!addresses.length) {
+                    statusDiv.innerHTML = `⚠️ Не найдено адресов в файле "${fileName}". Проверьте, что на фото/в документе есть адрес.`;
+                    prog.style.width = '0%';
+                    return;
+                }
+                
+                // Показываем распознанные адреса
+                recognizedDiv.style.display = 'block';
+                recognizedListDiv.innerHTML = addresses.map(addr => `<div class="recognized-item">📌 ${addr} <span class="recognized-status">(проверка...)</span></div>`).join('');
+                
+                statusDiv.innerHTML = `🔍 Найдено ${addresses.length} адресов. Добавление в "Мои точки"...`;
+                prog.style.width = '70%';
+                
+                let added = 0;
+                const results = [];
+                
+                for (let i = 0; i < addresses.length; i++) {
+                    const addr = addresses[i];
+                    statusDiv.innerHTML = `📍 Геокодирование (${i+1}/${addresses.length}): "${addr.substring(0, 50)}"...`;
+                    
+                    const geo = await geocode(addr);
+                    if (geo) {
+                        await addLocation(geo.displayName, geo.lat, geo.lng);
+                        added++;
+                        results.push({ addr, status: 'success', fullAddr: geo.displayName });
+                        statusDiv.innerHTML = `✅ Добавлено ${added}/${addresses.length}: ${addr.substring(0, 40)}...`;
+                        // Обновляем статус в списке
+                        recognizedListDiv.innerHTML = addresses.map((a, idx) => {
+                            const result = results.find(r => r.addr === a);
+                            if (result) {
+                                return `<div class="recognized-item">📌 ${a} <span class="recognized-status status-success">✓ добавлен</span><br><span style="font-size:10px; color:#666;">→ ${result.fullAddr.substring(0, 50)}</span></div>`;
+                            } else if (idx < i) {
+                                return `<div class="recognized-item">📌 ${a} <span class="recognized-status status-failed">✗ не найден</span></div>`;
+                            } else {
+                                return `<div class="recognized-item">📌 ${a} <span class="recognized-status">(проверка...)</span></div>`;
+                            }
+                        }).join('');
+                    } else {
+                        results.push({ addr, status: 'failed' });
+                        recognizedListDiv.innerHTML = addresses.map((a, idx) => {
+                            const result = results.find(r => r.addr === a);
+                            if (result && result.status === 'success') {
+                                return `<div class="recognized-item">📌 ${a} <span class="recognized-status status-success">✓ добавлен</span><br><span style="font-size:10px; color:#666;">→ ${result.fullAddr.substring(0, 50)}</span></div>`;
+                            } else if (result && result.status === 'failed') {
+                                return `<div class="recognized-item">📌 ${a} <span class="recognized-status status-failed">✗ не найден на карте</span></div>`;
+                            } else {
+                                return `<div class="recognized-item">📌 ${a} <span class="recognized-status">(проверка...)</span></div>`;
+                            }
+                        }).join('');
+                        console.log('Не удалось геокодировать:', addr);
+                    }
+                    prog.style.width = `${70 + ((i+1) / addresses.length) * 30}%`;
+                    await new Promise(r => setTimeout(r, 150));
+                }
+                
+                // Принудительно обновляем отображение маркеров и списка
+                refreshMapMarkers();
+                updateLocationsUI();
+                
+                if (added > 0) {
+                    statusDiv.innerHTML = `✅ УСПЕШНО! ${added} из ${addresses.length} локаций из "${fileName}" добавлены в "Мои точки" и на карту!`;
+                    
+                    if (locations.length >= 2) {
+                        setTimeout(() => {
+                            if (confirm(`✅ Добавлено ${added} точек. Построить оптимальный маршрут?`)) {
+                                buildOptimal();
+                            }
+                        }, 1000);
+                    }
+                } else {
+                    statusDiv.innerHTML = `⚠️ Не удалось найти на карте ни одного адреса из "${fileName}". Попробуйте более полные адреса (с городом, улицей, домом).`;
+                }
+                
+                setTimeout(() => { prog.style.width = '0%'; }, 5000);
+                
+            } catch (error) {
+                console.error('Process error:', error);
+                statusDiv.innerHTML = `❌ Ошибка: ${error.message || 'неизвестная ошибка'}`;
+                prog.style.width = '0%';
+            }
+        }
+        
+        // Обработчики файлов
+        const fileInput = document.getElementById('fileUploadInput');
+        const fileLabel = document.getElementById('fileLabel');
+        
+        if (fileLabel && fileInput) {
+            fileLabel.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+            fileInput.addEventListener('change', (e) => { 
+                if(e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0];
+                    const isImage = file.type.startsWith('image/');
+                    processFile(file, isImage);
+                }
+                fileInput.value = ''; 
+            });
+        }
+        
+        function setMapClickMode(enabled){ mapClickMode=enabled; document.getElementById('searchModeBtn').classList.toggle('active',!enabled); document.getElementById('mapClickModeBtn').classList.toggle('active',enabled); document.getElementById('searchInputs').style.display=enabled?'none':'block'; document.getElementById('mapClickInfo').style.display=enabled?'block':'none'; map.getContainer().style.cursor=enabled?'crosshair':''; if(!enabled && document.getElementById('addressInput').value.trim().length>=2) showAddressOnMap(document.getElementById('addressInput').value); }
+        map.on('click', handleMapClick);
+        document.getElementById('searchModeBtn').onclick=()=>setMapClickMode(false);
+        document.getElementById('mapClickModeBtn').onclick=()=>setMapClickMode(true);
+        document.getElementById('geolocationBtn').onclick=getUserLocation;
+        document.getElementById('optimizeRouteBtn').onclick=buildOptimal;
+        document.getElementById('shareRouteBtn').onclick=shareRoute;
+        document.getElementById('clearAllBtn').onclick=()=>{ locations=[]; updateLocationsUI(); refreshMapMarkers(); clearRoute(); updateQuickStats(); currentOptimizedOrder=null; document.getElementById('infoPanel').innerHTML='<div style="font-weight:800;">📊 Маршрутный центр</div><div>💡 Кликните по карте для добавления точки с точным адресом</div>'; };
+        document.getElementById('returnToStartCheckbox').onchange=(e)=>{ returnToStart=e.target.checked; updateQuickStats(); if(locations.length>=2) clearRoute(); };
+        document.getElementById('addBtn').onclick=async()=>{ const val=document.getElementById('addressInput').value.trim(); if(val && currentPreviewData){ await addLocation(currentPreviewData.address,currentPreviewData.lat,currentPreviewData.lng); clearPreview(); document.getElementById('addressInput').value=''; } else if(val){ await addLocation(val); clearPreview(); document.getElementById('addressInput').value=''; } else alert('Введите адрес'); };
+        document.getElementById('voiceInputBtn').onclick=startVoiceInput;
+        
+        const addrInput=document.getElementById('addressInput');
+        addrInput.addEventListener('input',(e)=>{ if(searchTimeout) clearTimeout(searchTimeout); const val=e.target.value.trim(); if(val.length>=2 && !mapClickMode){ searchTimeout=setTimeout(()=>showAddressOnMap(val),700); fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=4&accept-language=ru`).then(r=>r.json()).then(data=>{ const suggDiv=document.getElementById('suggestions'); if(data && data.length){ suggDiv.innerHTML=data.map(s=>`<div class="suggestion-item" onclick="window.selectSuggestion(${JSON.stringify(s).replace(/"/g,'&quot;')})"><div style="font-weight:500;">${s.display_name.split(',')[0]}</div><div style="font-size:11px;">${s.display_name.split(',').slice(1,3).join(',')}</div></div>`).join(''); suggDiv.style.display='block'; } else suggDiv.style.display='none'; }).catch(()=>{}); } else if(val.length<2){ clearPreview(); document.getElementById('suggestions').style.display='none'; } });
+        window.selectSuggestion=(s)=>{ const lat=parseFloat(s.lat), lng=parseFloat(s.lon), addr=s.display_name; if(currentPreviewMarker) currentPreviewMarker.remove(); const icon=L.divIcon({className:'preview-marker-icon',iconSize:[44,44]}); currentPreviewMarker=L.marker([lat,lng],{icon}).addTo(map); currentPreviewMarker.bindPopup(`<b>📍 ${addr.substring(0,70)}</b><br><button onclick="window.addFromPreview()" style="background:#1a4a6f;color:white;border:none;padding:6px 14px;border-radius:20px;">✅ Добавить</button>`).openPopup(); currentPreviewData={lat,lng,address:addr}; document.getElementById('livePreviewCard').style.display='block'; document.getElementById('livePreviewCard').innerHTML=`<div class="live-preview-card"><div>✨ ${addr.substring(0,65)}</div><div class="preview-buttons"><button class="preview-btn preview-btn-add" onclick="window.addFromPreview()">✅ Добавить</button></div></div>`; map.flyTo([lat,lng],14); document.getElementById('suggestions').style.display='none'; document.getElementById('addressInput').value=addr; };
+        document.addEventListener('click',(e)=>{ if(!e.target.closest('.search-container')) document.getElementById('suggestions').style.display='none'; });
+        
+        recognition = initVoiceRecognition();
+        
+        console.log('✅ OptiRoute Pro с OCR.space загружен');
+        console.log('🔑 OCR API Key:', OCR_API_KEY);
+        console.log('📍 Все распознанные адреса будут показаны и добавлены в "Мои точки"');
+    </script>
+</body>
+</html>
