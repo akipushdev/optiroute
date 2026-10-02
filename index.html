@@ -548,6 +548,20 @@
         };
 
 
+        
+        window.toggleCompleted = (idx) => {
+            const isChecked = document.getElementById(`comp_${idx}`).checked;
+            if (isChecked) {
+                // mark 0 to idx as completed
+                for(let i=0; i<=idx; i++) locations[i].completed = true;
+            } else {
+                // mark idx to end as uncompleted
+                for(let i=idx; i<locations.length; i++) locations[i].completed = false;
+            }
+            updateLocationsUI();
+            if(locations.length >= 2) buildManualRoute(); // redraw with active points
+        };
+
         function updateLocationsUI() {
             const container = document.getElementById('locationsContainer');
             const countSpan = document.getElementById('locationCount');
@@ -559,17 +573,20 @@
             }
             
             container.innerHTML = locations.map((loc, idx) => `
-                <div class="location-item ${(loc.role === 'start' || loc.role === 'end') ? 'fixed-point' : ''}" style="${loc.role==='start'?'border-left-color:#2ecc71;':''}${loc.role==='end'?'border-left-color:#e74c3c;':''}">
+                <div class="location-item ${(loc.role === 'start' || loc.role === 'end') ? 'fixed-point' : ''}" style="${loc.role==='start'?'border-left-color:#2ecc71;':''}${loc.role==='end'?'border-left-color:#e74c3c;':''} opacity: ${loc.completed ? '0.5' : '1'};">
                     ${(loc.role !== 'start' && loc.role !== 'end') ? '<span class="drag-handle" style="cursor: grab; font-size: 18px; margin-right: 12px; color: #a0aec0;">☰</span>' : '<span style="width: 18px; margin-right: 12px; display:inline-block;"></span>'}
                     <div style="flex:1;">
-                        <div style="font-weight:600;">${idx+1}. ${loc.address.substring(0, 70)}
+                        <div style="font-weight:600; text-decoration: ${loc.completed ? 'line-through' : 'none'};">${idx+1}. ${loc.address.substring(0, 70)}
                             ${loc.role === 'start' ? '<span class="start-badge" style="background:#2ecc71;color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Старт</span>' : ''}
                             ${loc.role === 'end' ? '<span class="start-badge" style="background:#e74c3c;color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Финиш</span>' : ''}
                             ${(!loc.role && idx===0) ? '<span class="start-badge" style="background:#95a5a6;color:white;padding:2px 6px;border-radius:4px;font-size:10px;">Неявный старт</span>' : ''}
                         </div>
                         <div style="font-size:10px; color:#666;">${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}</div>
                     </div>
-                    <div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <label style="display:flex; align-items:center; cursor:pointer;" title="Отметить как пройденный (и все предыдущие)">
+                            <input type="checkbox" id="comp_${idx}" onchange="window.toggleCompleted(${idx})" ${loc.completed ? 'checked' : ''} style="transform: scale(1.2); margin:0;">
+                        </label>
                         <button class="icon-btn" onclick="window.centerOnLoc(${idx})" title="Центрировать">📍</button>
                         <button class="icon-btn" onclick="window.removeLoc(${idx})" title="Удалить">❌</button>
                     </div>
@@ -626,12 +643,22 @@
             if(points.length<=2) return points.map((_,i)=>i);
             
             const hasEnd = points[points.length-1].role === 'end';
-            let unvisited = [];
-            for (let i = 1; i < (hasEnd ? points.length - 1 : points.length); i++) {
-                unvisited.push(i);
+            let route = [];
+            let lastCompletedIdx = -1;
+            for(let i=0; i<points.length; i++) if(points[i].completed) lastCompletedIdx = i;
+            
+            let lastFixed = 0;
+            if (lastCompletedIdx >= 0) {
+                for(let i=0; i<=lastCompletedIdx; i++) route.push(i);
+                lastFixed = lastCompletedIdx;
+            } else {
+                route.push(0);
             }
             
-            let route = [0];
+            let unvisited = [];
+            for (let i = lastFixed + 1; i < (hasEnd ? points.length - 1 : points.length); i++) {
+                unvisited.push(i);
+            }
             while(unvisited.length) {
                 let last = route[route.length-1];
                 let nearest = unvisited.reduce((best, idx) => {
@@ -687,7 +714,15 @@
                 return;
             }
             const needReturn = document.getElementById('returnToStartCheckbox').checked;
-            const waypoints = locations.map(l => L.latLng(l.lat, l.lng));
+            
+            let routeLocations = locations;
+            let lastCompletedIdx = locations.map(l => l.completed).lastIndexOf(true);
+            if (lastCompletedIdx >= 0) {
+                routeLocations = locations.slice(lastCompletedIdx);
+            }
+            if (routeLocations.length < 2) routeLocations = locations; // Fallback
+            const waypoints = routeLocations.map(l => L.latLng(l.lat, l.lng));
+
             
             
             if (routingControl) map.removeControl(routingControl);
@@ -706,7 +741,7 @@
                 const distKm = (route.summary.totalDistance / 1000).toFixed(1);
                 const minutes = Math.round(route.summary.totalTime / 60);
                 const timeStr = minutes >= 60 ? `${Math.floor(minutes/60)} ч ${minutes%60} мин` : `${minutes} мин`;
-                let orderHtml = locations.map((l,i)=>`${i+1}. ${l.address.substring(0,45)}`).join('<br>');
+                let orderHtml = locations.map((l,i)=> l.completed ? `✅ <del>${l.address.substring(0,40)}</del>` : `⏳ ${i+1}. ${l.address.substring(0,40)}`).join('<br>');
                 if(needReturn) orderHtml += '<br>↺ Вернуться на старт';
                 
                 document.getElementById('infoPanel').innerHTML = `
@@ -735,7 +770,15 @@
             refreshMapMarkers();
             
             currentOptimizedOrder = ordered; 
-            let waypoints = ordered.map(p => L.latLng(p.lat, p.lng)); 
+            
+            let routeLocations = ordered;
+            let lastCompletedIdx = ordered.map(l => l.completed).lastIndexOf(true);
+            if (lastCompletedIdx >= 0) {
+                routeLocations = ordered.slice(lastCompletedIdx);
+            }
+            if (routeLocations.length < 2) routeLocations = ordered; // Fallback
+            let waypoints = routeLocations.map(p => L.latLng(p.lat, p.lng));
+ 
              
             routingControl = L.Routing.control({ waypoints, router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }), lineOptions: { styles: [{ color: '#ff7b2c', weight: 5 }] }, show: false }).addTo(map); 
             routingControl.on('routesfound', (e) => { 
@@ -743,7 +786,7 @@
                 const distKm = (route.summary.totalDistance / 1000).toFixed(1); 
                 const minutes = Math.round(route.summary.totalTime / 60); 
                 const timeStr = minutes >= 60 ? `${Math.floor(minutes/60)} ч ${minutes%60} мин` : `${minutes} мин`; 
-                let orderHtml = ordered.map((l,i)=>`${i+1}. ${l.address.substring(0,45)}`).join('<br>'); 
+                let orderHtml = ordered.map((l,i)=> l.completed ? `✅ <del>${l.address.substring(0,40)}</del>` : `⏳ ${i+1}. ${l.address.substring(0,40)}`).join('<br>'); 
                 if(needReturn) orderHtml += '<br>↺ Вернуться на старт'; 
                 document.getElementById('infoPanel').innerHTML = `<div style="font-weight:800;">✅ Оптимальный маршрут</div><div>📏 ${distKm} км | ⏱️ ${timeStr}<br>🔄 ${needReturn ? 'С возвратом' : 'Без возврата'}</div><div><strong>📌 Порядок:</strong><br>${orderHtml}</div><button id="sendToNavBtn" class="send-route-btn">🗺️ ОТПРАВИТЬ В НАВИГАТОР</button><button id="shareRouteBtnPanel" class="share-btn">📤 ПОДЕЛИТЬСЯ</button>`; 
                 document.getElementById('sendToNavBtn')?.addEventListener('click', () => showNavigationOptions(currentOptimizedOrder, needReturn)); 
@@ -1116,7 +1159,14 @@
             const needReturn = document.getElementById('returnToStartCheckbox').checked; 
             let msg = '📍 *Мой маршрут*\n📌 Точек: '+locations.length+'\n'+(needReturn ? '🔄 С возвратом\n\n' : '➡️ Без возврата\n\n'); 
             const ordered = currentOptimizedOrder || locations; 
-            ordered.forEach((loc,i)=>{ msg+=`${i+1}. ${loc.address.substring(0,70)}\n   https://maps.google.com/?q=${loc.lat},${loc.lng}\n`; }); if(needReturn && ordered.length>1) msg+=`↺ Возврат: ${ordered[0].address.substring(0,60)}\n`; 
+            ordered.forEach((loc,i)=>{ 
+                if(loc.completed) {
+                    msg+=`✅ ${i+1}. ~${loc.address.substring(0,70)}~\n`;
+                } else {
+                    msg+=`⏳ ${i+1}. ${loc.address.substring(0,70)}\n   https://maps.google.com/?q=${loc.lat},${loc.lng}\n`; 
+                }
+            }); 
+            if(needReturn && ordered.length>1) msg+=`↺ Возврат: ${ordered[0].address.substring(0,60)}\n`; 
 
             // Copy to clipboard immediately
             navigator.clipboard.writeText(msg.replace(/\*/g, '')).then(() => {
