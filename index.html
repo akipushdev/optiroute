@@ -695,11 +695,24 @@
         function openInNavigator(url) { window.open(url, '_blank'); }
         function showNavigationOptions(orderedPoints, needReturn) { 
             if(!orderedPoints || orderedPoints.length === 0) return;
-            const points = needReturn ? [...orderedPoints, orderedPoints[0]] : orderedPoints;
-            const start = points[0];
-            const yandexUrl = `https://yandex.ru/navi/?mode=waypoints&pt=${points.map(p => `${p.lng},${p.lat}`).join('~')}`;
+            
+            let activePoints = orderedPoints.filter(p => !p.completed);
+            
+            if (activePoints.length === 0 && needReturn) {
+                activePoints = [orderedPoints[0]];
+            } else if (needReturn && orderedPoints.length > 0) {
+                activePoints.push(orderedPoints[0]);
+            }
+            
+            if (activePoints.length === 0) {
+                alert('Все точки маршрута уже пройдены!');
+                return;
+            }
+
+            const start = activePoints[0];
+            const yandexUrl = `https://yandex.ru/navi/?mode=waypoints&pt=${activePoints.map(p => `${p.lng},${p.lat}`).join('~')}`;
             let googleUrl = `https://www.google.com/maps/dir/${start.lat},${start.lng}`;
-            for(let i = 1; i < points.length; i++) googleUrl += `/${points[i].lat},${points[i].lng}`;
+            for(let i = 1; i < activePoints.length; i++) googleUrl += `/${activePoints[i].lat},${activePoints[i].lng}`;
             const wazeUrl = `https://www.waze.com/ul?ll=${start.lat},${start.lng}&navigate=yes`;
             const navHtml = `<div style="margin-top:12px;"><div style="font-weight:800;">🗺️ ОТКРЫТЬ В НАВИГАТОРЕ:</div><div class="nav-selector"><button class="nav-btn" data-url="${encodeURIComponent(yandexUrl)}">🚕 Яндекс</button><button class="nav-btn" data-url="${encodeURIComponent(googleUrl)}">🗺️ Google</button><button class="nav-btn" data-url="${encodeURIComponent(wazeUrl)}">🛣️ Waze</button></div></div>`;
             const panel = document.getElementById('infoPanel');
