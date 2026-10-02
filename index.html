@@ -595,12 +595,12 @@
             markers = []; 
             locations.forEach((loc, i) => { 
                 const numIcon = L.divIcon({ 
-                    html: `<div class="marker-number" style="background:${i===0?'#10b981':'#1a4a6f'};">${i+1}</div>`, 
+                    html: `<div class="marker-number" style="background:${loc.role === 'start' ? '#10b981' : (loc.role === 'end' ? '#e74c3c' : '#1a4a6f')};">${i+1}</div>`, 
                     className: 'custom-numbered-marker', 
                     iconSize: [30,30], 
                     popupAnchor: [0,-15] 
                 }); 
-                const m = L.marker([loc.lat, loc.lng], { icon: numIcon }).bindPopup(`<b>${i+1}. ${loc.address.substring(0,60)}</b><br><button onclick="window.removeLoc(${i})" style="background:#e74c3c;color:white;border:none;padding:4px 12px;border-radius:20px;margin-top:5px;cursor:pointer;">🗑 Удалить</button>`); 
+                const m = L.marker([loc.lat, loc.lng], { icon: numIcon, zIndexOffset: 1000 - i }).bindPopup(`<b>${i+1}. ${loc.address.substring(0,60)}</b><br><button onclick="window.removeLoc(${i})" style="background:#e74c3c;color:white;border:none;padding:4px 12px;border-radius:20px;margin-top:5px;cursor:pointer;">🗑 Удалить</button>`); 
                 m.addTo(map); 
                 markers.push(m); 
             }); 
