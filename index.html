@@ -497,23 +497,7 @@
             if(locations.length >= 2) buildOptimal();
         };
 
-        window.setEndPoint = (address, lat, lng) => {
-            const existingIdx = locations.findIndex(l => l.role === 'end');
-            if (existingIdx !== -1) locations.splice(existingIdx, 1);
-            locations.push({ lat, lng, address, role: 'end', id: Date.now() + Math.random() });
-            updateLocationsUI();
-            refreshMapMarkers();
-            if(locations.length >= 2) buildOptimal();
-        };
-
-        window.setEndPoint = (address, lat, lng) => {
-            const existingIdx = locations.findIndex(l => l.role === 'end');
-            if (existingIdx !== -1) locations.splice(existingIdx, 1);
-            locations.push({ lat, lng, address, role: 'end', id: Date.now() + Math.random() });
-            updateLocationsUI();
-            refreshMapMarkers();
-            if(locations.length >= 2) buildManualRoute();
-        };
+        
 
         window.setStartFromInput = async () => {
             const val = document.getElementById('startInput').value;
@@ -1126,6 +1110,17 @@
                         if (evt.oldIndex === evt.newIndex) return;
                         const movedItem = locations.splice(evt.oldIndex, 1)[0];
                         locations.splice(evt.newIndex, 0, movedItem);
+                        
+                        // Bulletproof enforcement: Start always at 0, End always at last
+                        const startIdx = locations.findIndex(l => l.role === 'start');
+                        if (startIdx > 0) {
+                            locations.unshift(locations.splice(startIdx, 1)[0]);
+                        }
+                        const endIdx = locations.findIndex(l => l.role === 'end');
+                        if (endIdx !== -1 && endIdx !== locations.length - 1) {
+                            locations.push(locations.splice(endIdx, 1)[0]);
+                        }
+                        
                         updateLocationsUI();
                         refreshMapMarkers();
                         clearRoute();
