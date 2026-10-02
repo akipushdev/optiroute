@@ -828,7 +828,9 @@
             if (activePoints.length === 0 && needReturn) {
                 activePoints = [ordered[0]];
             } else if (needReturn && ordered.length > 0) {
-                activePoints.push(ordered[0]);
+                if (ordered[0].completed) {
+                    activePoints.push(ordered[0]);
+                }
             }
             
             if (activePoints.length > 0) {
@@ -845,7 +847,9 @@
             if (activePoints.length === 0 && needReturn) {
                 activePoints = [orderedPoints[0]];
             } else if (needReturn && orderedPoints.length > 0) {
-                activePoints.push(orderedPoints[0]);
+                if (orderedPoints[0].completed) {
+                    activePoints.push(orderedPoints[0]);
+                }
             }
             if (activePoints.length === 0) {
                 alert('Все точки маршрута уже пройдены!');
