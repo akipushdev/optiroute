@@ -558,6 +558,12 @@
             const needReturn = document.getElementById('returnToStartCheckbox').checked; 
             const orderIdx = tspOrder(locations); 
             const ordered = orderIdx.map(i => locations[i]); 
+            
+            // Физически обновляем массив и UI, чтобы визуально было видно перестроение
+            locations = [...ordered];
+            updateLocationsUI();
+            refreshMapMarkers();
+            
             currentOptimizedOrder = ordered; 
             let waypoints = ordered.map(p => L.latLng(p.lat, p.lng)); 
             if(needReturn && ordered.length>1) waypoints.push(L.latLng(ordered[0].lat, ordered[0].lng)); 
