@@ -806,7 +806,7 @@
             const ordered = currentOptimizedOrder || locations; 
             ordered.forEach((loc,i)=>{ 
                 if(loc.completed) {
-                    msg+=`✅ ${i+1}. ~${loc.address.substring(0,70)}~\n`;
+                    msg+=`✅ ${i+1}. ~${loc.address.substring(0,70)}~\n   https://yandex.ru/navi?text=${loc.lat},${loc.lng}\n`;
                 } else {
                     msg+=`⏳ ${i+1}. ${loc.address.substring(0,70)}\n   https://yandex.ru/navi?text=${loc.lat},${loc.lng}\n`; 
                 }
