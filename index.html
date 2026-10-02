@@ -1090,7 +1090,8 @@
             updateQuickStats();
             currentOptimizedOrder = null;
             document.getElementById('infoPanel').innerHTML='<div style="font-weight:800;">📊 Маршрутный центр</div><div>💡 Кликните по карте для добавления точки с точным адресом</div>';
-            window.confirmReoptimize();;
+            window.confirmReoptimize();
+        };
         document.getElementById('returnToStartCheckbox').onchange=(e)=>{ returnToStart=e.target.checked; updateQuickStats(); if(locations.length>=2) clearRoute(); };
         document.getElementById('addBtn').onclick=async()=>{ const val=document.getElementById('addressInput').value.trim(); if(val && currentPreviewData){ await addLocation(currentPreviewData.address,currentPreviewData.lat,currentPreviewData.lng); clearPreview(); document.getElementById('addressInput').value=''; } else if(val){ await addLocation(val); clearPreview(); document.getElementById('addressInput').value=''; } else alert('Введите адрес'); };
         document.getElementById('voiceInputBtn').onclick=startVoiceInput;
