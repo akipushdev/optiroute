@@ -509,7 +509,6 @@
             document.querySelectorAll('.nav-btn').forEach(btn => { btn.onclick = () => openInNavigator(decodeURIComponent(btn.getAttribute('data-url'))); });
         }
         
-        async 
         function buildManualRoute() {
             if (locations.length < 2) {
                 alert('Добавьте минимум 2 точки для маршрута');
