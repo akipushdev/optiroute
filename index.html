@@ -199,7 +199,24 @@
     <script>
         // Конфигурация OCR.space API
         const OCR_API_URL = 'https://api.ocr.space/parse/image';
-        const OCR_API_KEY = 'K89237002688957';
+        function getOcrKey() {
+            let key = localStorage.getItem('ocr_api_key');
+            if (!key) {
+                const pass = prompt('Введите пароль для доступа к OCR.space:');
+                if (pass) {
+                    try {
+                        const enc = atob('JEhNW1xHRFldRkxRVkVD');
+                        let res = '';
+                        for(let i=0; i<enc.length; i++) {
+                            res += String.fromCharCode(enc.charCodeAt(i) ^ pass.charCodeAt(i % pass.length));
+                        }
+                        key = res;
+                        localStorage.setItem('ocr_api_key', key);
+                    } catch(e) { alert('Ошибка расшифровки'); }
+                }
+            }
+            return key;
+        }
         
         // Инициализация карты
         const map = L.map('map').setView([55.751244, 37.618423], 11);
@@ -595,7 +612,9 @@
         // OCR.space распознавание
         async function ocrSpaceRecognize(file) {
             const formData = new FormData();
-            formData.append('apikey', OCR_API_KEY);
+            const apiKey = getOcrKey();
+            if (!apiKey) throw new Error('API ключ не предоставлен или пароль неверен');
+            formData.append('apikey', apiKey);
             formData.append('language', 'rus');
             formData.append('isOverlayRequired', 'false');
             formData.append('file', file);
@@ -808,7 +827,7 @@
         recognition = initVoiceRecognition();
         
         console.log('✅ OptiRoute Pro с OCR.space загружен');
-        console.log('🔑 OCR API Key:', OCR_API_KEY);
+        console.log('🔑 OCR API Key защищен паролем');
         console.log('📍 Все распознанные адреса будут показаны и добавлены в "Мои точки"');
     </script>
 </body>
