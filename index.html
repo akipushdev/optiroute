@@ -1197,7 +1197,7 @@
             shareRoute();
         };
                 document.getElementById('clearAllBtn').onclick=() => {
-            if(!confirm('Удалить промежуточные точки? (Старт и Финиш останутся)')) return;
+            if(!confirm('Удалить промежуточные точки и очистить распознанные адреса? (Старт и Финиш останутся)')) return;
             locations = locations.filter(l => l.role === 'start' || l.role === 'end');
             updateLocationsUI();
             refreshMapMarkers();
@@ -1205,6 +1205,10 @@
             updateQuickStats();
             currentOptimizedOrder = null;
             document.getElementById('infoPanel').innerHTML='<div style="font-weight:800;">📊 Маршрутный центр</div><div>💡 Кликните по карте для добавления точки с точным адресом</div>';
+            
+            const recList = document.getElementById('recognizedList');
+            if(recList) recList.innerHTML = '';
+            
             window.confirmReoptimize();
         };
                 document.getElementById('addBtn').onclick=async()=>{ const val=document.getElementById('addressInput').value.trim(); if(val && currentPreviewData){ await addLocation(currentPreviewData.address,currentPreviewData.lat,currentPreviewData.lng); clearPreview(); document.getElementById('addressInput').value=''; } else if(val){ await addLocation(val); clearPreview(); document.getElementById('addressInput').value=''; } else alert('Введите адрес'); };
