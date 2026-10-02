@@ -554,7 +554,16 @@
                 for(let i=idx; i<locations.length; i++) locations[i].completed = false;
             }
             updateLocationsUI();
-            if(locations.length >= 2) buildManualRoute(); // redraw with active points
+            
+            window.preventFitBounds = true;
+            if (locations.length >= 2) {
+                if (currentOptimizedOrder && currentOptimizedOrder.length > 0) {
+                    buildOptimal();
+                } else {
+                    buildManualRoute();
+                }
+            }
+            setTimeout(() => { window.preventFitBounds = false; }, 500);
         };
 
         function updateLocationsUI() {
@@ -749,7 +758,7 @@
                 document.getElementById('sendToNavBtn')?.addEventListener('click', () => showNavigationOptions(locations, needReturn));
                 document.getElementById('shareRouteBtnPanel')?.addEventListener('click', () => shareRoute(locations));
             });
-            map.fitBounds(L.latLngBounds(waypoints), {padding: [60, 60]});
+            if(!window.preventFitBounds) { map.fitBounds(L.latLngBounds(waypoints), {padding: [60, 60]}); }
         }
 
         function buildOptimal() { 
@@ -787,7 +796,7 @@
                 document.getElementById('sendToNavBtn')?.addEventListener('click', () => showNavigationOptions(currentOptimizedOrder, needReturn)); 
                 document.getElementById('shareRouteBtnPanel')?.addEventListener('click', () => shareRoute()); 
             }); 
-            map.fitBounds(L.latLngBounds(waypoints.map(w=>[w.lat,w.lng])), {padding:[60,60]}); 
+            if(!window.preventFitBounds) { map.fitBounds(L.latLngBounds(waypoints.map(w=>[w.lat,w.lng])), {padding:[60,60]}); } 
         }
         
         window.generateShareText = () => {
