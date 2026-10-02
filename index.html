@@ -120,6 +120,9 @@
     </div>
     <div class="container">
         <div class="sidebar">
+            <h2 style="margin-bottom: 20px; font-weight: 800; color: #1e3c72; display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 24px;">🚚</span> OptiRoute <span style="font-size: 14px; font-weight: 500; color: #7f8c8d; background: #f1f2f6; padding: 2px 8px; border-radius: 12px; margin-left: auto;">AI DEMO</span>
+            </h2>
             <div class="add-location">
                 <div class="mode-toggle">
                     <button id="searchModeBtn" class="mode-btn active">🔍 Поиск адреса</button>
@@ -137,8 +140,11 @@
                     <div id="livePreviewCard" style="display: none;"></div>
                     <button id="addBtn" class="btn-primary">➕ Добавить локацию</button>
                 </div>
+                <div id="mapClickInfo" style="display: none; background: #eef2ff; padding: 12px; border-radius: 28px; margin-top: 12px; text-align: center; font-weight: 500;">
+                    🖱️ Режим добавления: кликните по карте — определится точный адрес
+                </div>
+            </div>
 
-            
             <div class="start-end-panel" style="background:#f8f9fa; padding:12px; border-radius:8px; margin-bottom:15px; border:1px solid #e2e8f0;">
                 <h4 style="margin:0 0 10px 0; font-size:14px; color:#1e3c72;">🏁 Настройка Старта и Финиша</h4>
                 
@@ -150,30 +156,41 @@
                         <button class="btn-primary" onclick="window.setStartFromInput()" style="padding:4px 10px; font-size:12px;">Задать</button>
                     </div>
                 </div>
-                <div id="mapClickInfo" style="display: none; background: #eef2ff; padding: 12px; border-radius: 28px; margin-top: 12px; text-align: center; font-weight: 500;">
-                    🖱️ Режим добавления: кликните по карте — определится точный адрес
-                </div>
-                <div class="scan-section">
-                    <div class="scan-title">
-                        🔍 OCR.space РАСПОЗНАВАНИЕ
-                        <span class="ai-badge">OCR</span>
-                        <span class="success-badge">Авто-добавление</span>
-                    </div>
-                    <div class="upload-area">
-                        <button id="openCameraBtn" class="upload-btn camera" style="background: linear-gradient(95deg, #f39c12, #e67e22); color: white; border: none;">📷 СФОТОГРАФИРОВАТЬ</button>
-                        <label class="upload-btn" id="fileLabel">📎 ВЫБРАТЬ ФАЙЛ</label>
-                    </div>
-                    <input type="file" id="fileUploadInput" accept=".pdf,.docx,.xlsx,.xls,.txt,.csv,.jpg,.jpeg,.png">
-                    <div id="scanStatus" class="scan-status">✨ OCR.space распознаёт адреса и автоматически добавляет их в "Мои точки"</div>
-                    <div id="progressBar" class="progress-bar"></div>
-                    <div id="recognizedAddressesList" class="recognized-addresses" style="display: none;">
-                        <div class="recognized-title">📋 РАСПОЗНАННЫЕ АДРЕСА:</div>
-                        <div id="recognizedList"></div>
+
+                <label class="checkbox-label" style="font-size:13px; margin-bottom:8px;">
+                    <input type="checkbox" id="returnToStartCheckbox" checked onchange="window.toggleEndMode()">
+                    <span>🔄 Вернуться в начальную точку</span>
+                </label>
+
+                <div id="endPointWrapper" style="opacity: 0.5; pointer-events: none;">
+                    <div style="font-size:12px; font-weight:bold; color:#2c3e50; margin-bottom:4px;">🏁 Конечная точка:</div>
+                    <div style="display:flex; gap:5px;">
+                        <input type="text" id="endInput" placeholder="Совпадает со стартом" class="location-input" style="margin:0;" disabled>
+                        <button class="icon-btn" id="endGpsBtn" onclick="window.setEndFromGPS()" style="background:#fff;border:1px solid #ccc;border-radius:4px;" title="Моё местоположение" disabled>📍</button>
+                        <button class="btn-primary" id="endSetBtn" onclick="window.setEndFromInput()" style="padding:4px 10px; font-size:12px;" disabled>Задать</button>
                     </div>
                 </div>
-                
-                
             </div>
+
+            <div class="scan-section">
+                <div class="scan-title">
+                    🔍 OCR.space РАСПОЗНАВАНИЕ
+                    <span class="ai-badge">OCR</span>
+                    <span class="success-badge">Авто-добавление</span>
+                </div>
+                <div class="upload-area">
+                    <button id="openCameraBtn" class="upload-btn camera" style="background: linear-gradient(95deg, #f39c12, #e67e22); color: white; border: none;">📷 СФОТОГРАФИРОВАТЬ</button>
+                    <label class="upload-btn" id="fileLabel">📎 ВЫБРАТЬ ФАЙЛ</label>
+                </div>
+                <input type="file" id="fileUploadInput" accept=".pdf,.docx,.xlsx,.xls,.txt,.csv,.jpg,.jpeg,.png">
+                <div id="scanStatus" class="scan-status">✨ OCR.space распознаёт адреса и автоматически добавляет их в "Мой маршрут"</div>
+                <div id="progressBar" class="progress-bar"></div>
+                <div id="recognizedAddressesList" class="recognized-addresses" style="display: none;">
+                    <div class="recognized-title">📋 РАСПОЗНАННЫЕ АДРЕСА:</div>
+                    <div id="recognizedList"></div>
+                </div>
+            </div>
+            
             <div class="locations-list">
                 <h3 style="margin-bottom: 14px;">🛣️ Мой маршрут (<span id="locationCount">0</span>)</h3>
                 <div id="locationsContainer" style="max-height: 400px; overflow-y: auto;"></div>
@@ -707,7 +724,7 @@
             } 
         }
         
-        function updateQuickStats() { 
+        function updateQuickStats() { return; 
             const panelDiv = document.getElementById('quickStats'); 
             if(locations.length>=2) { 
                 let total=0; 
