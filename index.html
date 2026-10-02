@@ -1114,19 +1114,9 @@
             if (locations.length === 0) { alert('Маршрут пуст'); return; }
             
             const needReturn = document.getElementById('returnToStartCheckbox').checked; 
-            let msg = '📍 *Мой маршрут*
-📌 Точек: '+locations.length+'
-'+(needReturn ? '🔄 С возвратом
-
-' : '➡️ Без возврата
-
-'); 
+            let msg = '📍 *Мой маршрут*\n📌 Точек: '+locations.length+'\n'+(needReturn ? '🔄 С возвратом\n\n' : '➡️ Без возврата\n\n'); 
             const ordered = currentOptimizedOrder || locations; 
-            ordered.forEach((loc,i)=>{ msg+=`${i+1}. ${loc.address.substring(0,70)}
-   https://maps.google.com/?q=${loc.lat},${loc.lng}
-`; }); 
-            if(needReturn && ordered.length>1) msg+=`↺ Возврат: ${ordered[0].address.substring(0,60)}
-`; 
+            ordered.forEach((loc,i)=>{ msg+=`${i+1}. ${loc.address.substring(0,70)}\n   https://maps.google.com/?q=${loc.lat},${loc.lng}\n`; }); if(needReturn && ordered.length>1) msg+=`↺ Возврат: ${ordered[0].address.substring(0,60)}\n`; 
 
             // Copy to clipboard immediately
             navigator.clipboard.writeText(msg.replace(/\*/g, '')).then(() => {
