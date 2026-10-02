@@ -509,7 +509,51 @@
             document.querySelectorAll('.nav-btn').forEach(btn => { btn.onclick = () => openInNavigator(decodeURIComponent(btn.getAttribute('data-url'))); });
         }
         
-        async function buildOptimal() { 
+        async 
+        function buildManualRoute() {
+            if (locations.length < 2) {
+                alert('Добавьте минимум 2 точки для маршрута');
+                return;
+            }
+            const needReturn = document.getElementById('returnToStartCheckbox').checked;
+            const waypoints = locations.map(l => L.latLng(l.lat, l.lng));
+            if (needReturn) {
+                waypoints.push(L.latLng(locations[0].lat, locations[0].lng));
+            }
+            
+            if (routingControl) map.removeControl(routingControl);
+            
+            routingControl = L.Routing.control({
+                waypoints: waypoints,
+                routeWhileDragging: false,
+                language: 'ru',
+                show: false,
+                addWaypoints: false,
+                lineOptions: { styles: [{ color: '#f39c12', opacity: 0.9, weight: 5 }] }
+            }).addTo(map);
+            
+            routingControl.on('routesfound', (e) => {
+                const route = e.routes[0];
+                const distKm = (route.summary.totalDistance / 1000).toFixed(1);
+                const minutes = Math.round(route.summary.totalTime / 60);
+                const timeStr = minutes >= 60 ? `${Math.floor(minutes/60)} ч ${minutes%60} мин` : `${minutes} мин`;
+                let orderHtml = locations.map((l,i)=>`${i+1}. ${l.address.substring(0,45)}`).join('<br>');
+                if(needReturn) orderHtml += '<br>↺ Вернуться на старт';
+                
+                document.getElementById('infoPanel').innerHTML = `
+                    <div style="font-weight:800;">✅ Пользовательский маршрут</div>
+                    <div>📏 ${distKm} км | ⏱️ ${timeStr}<br>🔄 ${needReturn ? 'С возвратом' : 'Без возврата'}</div>
+                    <div style="margin-top:8px;"><strong>📌 Порядок:</strong><br>${orderHtml}</div>
+                    <button id="sendToNavBtn" class="send-route-btn">🗺️ ОТПРАВИТЬ В НАВИГАТОР</button>
+                    <button id="shareRouteBtnPanel" class="share-btn">📤 ПОДЕЛИТЬСЯ</button>
+                `;
+                document.getElementById('sendToNavBtn')?.addEventListener('click', () => showNavigationOptions(locations, needReturn));
+                document.getElementById('shareRouteBtnPanel')?.addEventListener('click', () => shareRoute(locations));
+            });
+            map.fitBounds(L.latLngBounds(waypoints), {padding: [60, 60]});
+        }
+
+        function buildOptimal() { 
             if(locations.length<2) { alert('Минимум 2 точки'); return; } 
             clearRoute(); 
             const needReturn = document.getElementById('returnToStartCheckbox').checked; 
@@ -598,6 +642,51 @@
         }
 
         // OCR.space распознавание
+        
+        window.retryOcrGeo = async (idx) => {
+            const input = document.getElementById(`unrec-input-${idx}`);
+            const val = input.value.trim();
+            if(!val) return;
+            const geo = await geocode(val);
+            if (geo) {
+                await addLocation(geo.displayName, geo.lat, geo.lng);
+                document.getElementById(`unrec-${idx}`).innerHTML = `📌 ${val} <span class="status-success" style="color:green; font-size:12px; font-weight:bold;">✓ добавлен</span>`;
+            } else {
+                alert('❌ Снова не найдено. Попробуйте еще сильнее сократить или изменить адрес.');
+            }
+        };
+
+        window.currentMapClickHandler = null;
+        window.mapPickOcrGeo = (idx) => {
+            const input = document.getElementById(`unrec-input-${idx}`);
+            const val = input.value.trim();
+            
+            document.getElementById('searchModeBtn').classList.remove('active');
+            document.getElementById('mapClickModeBtn').classList.add('active');
+            mapClickMode = true;
+            document.getElementById('searchInputs').style.display = 'none';
+            document.getElementById('infoPanel').innerHTML = `<div style="font-weight:800;color:#e74c3c;font-size:16px;">📍 Укажите на карте место для:</div><div style="margin-top:5px; font-size:14px; background:#fff; padding:5px; border-radius:4px;"><b>${val}</b></div><div style="margin-top:5px; font-size:12px;">Просто кликните мышкой/пальцем в нужное место на карте.</div>`;
+            
+            if (window.currentMapClickHandler) map.off('click', window.currentMapClickHandler);
+            map.off('click', handleMapClick);
+            
+            window.currentMapClickHandler = async (e) => {
+                const { lat, lng } = e.latlng;
+                await addLocation(val, lat, lng);
+                document.getElementById(`unrec-${idx}`).innerHTML = `📌 ${val} <span class="status-success" style="color:green; font-size:12px; font-weight:bold;">✓ добавлен вручную</span>`;
+                
+                map.off('click', window.currentMapClickHandler);
+                map.on('click', handleMapClick);
+                
+                document.getElementById('infoPanel').innerHTML = `<div style="font-weight: 800;">📊 Маршрутный центр</div><div style="margin-top: 6px;">💡 Кликните по карте для добавления точки с точным адресом</div>`;
+                document.getElementById('mapClickModeBtn').classList.remove('active');
+                document.getElementById('searchModeBtn').classList.add('active');
+                mapClickMode = false;
+                document.getElementById('searchInputs').style.display = 'block';
+            };
+            map.on('click', window.currentMapClickHandler);
+        };
+
         async function ocrSpaceRecognize(file) {
             const formData = new FormData();
             formData.append('apikey', OCR_API_KEY);
@@ -836,9 +925,7 @@
                         clearRoute();
                         updateQuickStats();
                         currentOptimizedOrder = null;
-                        
-                        // Если после перетаскивания хотим сразу строить маршрут (опционально)
-                        // buildOptimal();
+                        buildManualRoute();
                     }
                 });
             }
