@@ -446,6 +446,8 @@
 
         window.toggleEndMode = () => {
             const isReturn = document.getElementById('returnToStartCheckbox').checked;
+            returnToStart = isReturn; // Update global variable
+            
             const endWrap = document.getElementById('endPointWrapper');
             const endInput = document.getElementById('endInput');
             const endGpsBtn = document.getElementById('endGpsBtn');
@@ -476,6 +478,8 @@
                 if (existingEndIdx !== -1) locations.splice(existingEndIdx, 1);
             }
             
+            updateQuickStats();
+            clearRoute();
             updateLocationsUI();
             refreshMapMarkers();
             window.confirmReoptimize();
@@ -1009,7 +1013,7 @@
                             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                                 <div style="flex:1;" id="unrec-status-${idx}">${statusHtml}</div>
                                 <div style="display:flex; gap:5px; font-size:11px; margin-left:10px;">
-                                    <button class="icon-btn" onclick="window.retryOcrGeo(${idx})" style="background:#fff; border:1px solid #ccc; padding:2px 6px; border-radius:4px; cursor:pointer;" title="Пересчитать адрес">🔄 Искать</button>
+                                    <button class="icon-btn" onclick="window.retryOcrGeo(${idx})" style="background:#fff; border:1px solid #ccc; padding:2px 6px; border-radius:4px; cursor:pointer;" title="Пересчитать адрес">🔄 Обновить</button>
                                     <button class="icon-btn" onclick="window.mapPickOcrGeo(${idx})" style="background:#fff; border:1px solid #ccc; padding:2px 6px; border-radius:4px; cursor:pointer;" title="Указать на карте">🗺️ Указать на карте</button>
                                     <button class="icon-btn" onclick="document.getElementById('unrec-${idx}').remove()" style="background:#fff; border:1px solid #ccc; padding:2px 6px; border-radius:4px; cursor:pointer; color:#e74c3c;">🗑️</button>
                                 </div>
@@ -1111,8 +1115,7 @@
             document.getElementById('infoPanel').innerHTML='<div style="font-weight:800;">📊 Маршрутный центр</div><div>💡 Кликните по карте для добавления точки с точным адресом</div>';
             window.confirmReoptimize();
         };
-        document.getElementById('returnToStartCheckbox').onchange=(e)=>{ returnToStart=e.target.checked; updateQuickStats(); if(locations.length>=2) clearRoute(); };
-        document.getElementById('addBtn').onclick=async()=>{ const val=document.getElementById('addressInput').value.trim(); if(val && currentPreviewData){ await addLocation(currentPreviewData.address,currentPreviewData.lat,currentPreviewData.lng); clearPreview(); document.getElementById('addressInput').value=''; } else if(val){ await addLocation(val); clearPreview(); document.getElementById('addressInput').value=''; } else alert('Введите адрес'); };
+                document.getElementById('addBtn').onclick=async()=>{ const val=document.getElementById('addressInput').value.trim(); if(val && currentPreviewData){ await addLocation(currentPreviewData.address,currentPreviewData.lat,currentPreviewData.lng); clearPreview(); document.getElementById('addressInput').value=''; } else if(val){ await addLocation(val); clearPreview(); document.getElementById('addressInput').value=''; } else alert('Введите адрес'); };
         document.getElementById('voiceInputBtn').onclick=startVoiceInput;
         
         const addrInput=document.getElementById('addressInput');
