@@ -828,7 +828,7 @@
                     <button id="waShare" style="background:#25D366; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">💬 В WhatsApp</button>
                     <button id="copyRouteBtn" style="background:#6c757d; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">📋 Скопировать текст</button>
                 </div>
-                <button onclick="document.getElementById('infoPanel').innerHTML='<div style=\'font-weight:800;\'>📊 Маршрутный центр</div><div>💡 Кликните по карте для добавления точки с точным адресом</div>';" style="margin-top: 15px; background: transparent; border: 1px solid #ccc; padding: 6px 12px; border-radius: 6px; cursor: pointer;">Отмена</button>
+                <button id="cancelShareBtn" style="margin-top: 15px; background: transparent; border: 1px solid #ccc; padding: 6px 12px; border-radius: 6px; cursor: pointer;">Отмена</button>
             </div>`;
             
             const panel = document.getElementById('infoPanel'); 
@@ -841,6 +841,18 @@
                 document.getElementById('copyRouteBtn').innerHTML = '✅ Скопировано!';
                 setTimeout(()=> document.getElementById('copyRouteBtn').innerHTML = '📋 Скопировать текст', 2000); 
             }); 
+            
+            document.getElementById('cancelShareBtn')?.addEventListener('click', () => {
+                window.preventFitBounds = true;
+                if (currentOptimizedOrder && currentOptimizedOrder.length > 0) {
+                    buildOptimal();
+                } else if (locations.length >= 2) {
+                    window.buildManualRoute();
+                } else {
+                    document.getElementById('infoPanel').innerHTML='<div style="font-weight:800;">📊 Маршрутный центр</div><div>💡 Кликните по карте для добавления точки с точным адресом</div>';
+                }
+                setTimeout(() => { window.preventFitBounds = false; }, 500);
+            });
         }
         
         function updateQuickStats() { return; 
