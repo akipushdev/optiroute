@@ -608,7 +608,44 @@
         
         function clearRoute() { if(routingControl) { routingControl.remove(); routingControl = null; } }
         function haversine(lat1,lng1,lat2,lng2) { const R=6371; const dLat=(lat2-lat1)*Math.PI/180; const dLng=(lng2-lng1)*Math.PI/180; const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2; return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
-        function tspOrder(points) { if(points.length<=1) return points.map((_,i)=>i); let unvisited = [...Array(points.length).keys()]; let start = unvisited.shift(); let route = [start]; while(unvisited.length) { let last = route[route.length-1]; let nearest = unvisited.reduce((best, idx) => { let d = haversine(points[last].lat, points[last].lng, points[idx].lat, points[idx].lng); return d < best.d ? {idx, d} : best; }, {idx: unvisited[0], d: Infinity}); route.push(nearest.idx); unvisited = unvisited.filter(i=>i!==nearest.idx); } for(let improved=true; improved;) { improved=false; for(let i=1;i<route.length-2;i++) for(let j=i+1;j<route.length-1;j++) { let a=route[i-1],b=route[i],c=route[j],d=route[j+1]; let before=haversine(points[a].lat,points[a].lng,points[b].lat,points[b].lng)+haversine(points[c].lat,points[c].lng,points[d].lat,points[d].lng); let after=haversine(points[a].lat,points[a].lng,points[c].lat,points[c].lng)+haversine(points[b].lat,points[b].lng,points[d].lat,points[d].lng); if(after<before) { route = [...route.slice(0,i), ...route.slice(i,j+1).reverse(), ...route.slice(j+1)]; improved=true; } } } return route; }
+        function tspOrder(points) {
+            if(points.length<=2) return points.map((_,i)=>i);
+            
+            const hasEnd = points[points.length-1].role === 'end';
+            let unvisited = [];
+            for (let i = 1; i < (hasEnd ? points.length - 1 : points.length); i++) {
+                unvisited.push(i);
+            }
+            
+            let route = [0];
+            while(unvisited.length) {
+                let last = route[route.length-1];
+                let nearest = unvisited.reduce((best, idx) => {
+                    let d = haversine(points[last].lat, points[last].lng, points[idx].lat, points[idx].lng);
+                    return d < best.d ? {idx, d} : best;
+                }, {idx: unvisited[0], d: Infinity});
+                route.push(nearest.idx);
+                unvisited = unvisited.filter(i=>i!==nearest.idx);
+            }
+            
+            for(let improved=true; improved;) {
+                improved=false;
+                for(let i=1;i<route.length-2;i++) {
+                    for(let j=i+1;j<route.length-1;j++) {
+                        let a=route[i-1], b=route[i], c=route[j], d=route[j+1];
+                        let before=haversine(points[a].lat,points[a].lng,points[b].lat,points[b].lng)+haversine(points[c].lat,points[c].lng,points[d].lat,points[d].lng);
+                        let after=haversine(points[a].lat,points[a].lng,points[c].lat,points[c].lng)+haversine(points[b].lat,points[b].lng,points[d].lat,points[d].lng);
+                        if(after<before) {
+                            route = [...route.slice(0,i), ...route.slice(i,j+1).reverse(), ...route.slice(j+1)];
+                            improved=true;
+                        }
+                    }
+                }
+            }
+            
+            if (hasEnd) route.push(points.length - 1);
+            return route;
+        }
         
         function openInNavigator(url) { window.open(url, '_blank'); }
         function showNavigationOptions(orderedPoints, needReturn) { 
