@@ -137,6 +137,19 @@
                     <div id="livePreviewCard" style="display: none;"></div>
                     <button id="addBtn" class="btn-primary">➕ Добавить локацию</button>
                 </div>
+
+            
+            <div class="start-end-panel" style="background:#f8f9fa; padding:12px; border-radius:8px; margin-bottom:15px; border:1px solid #e2e8f0;">
+                <h4 style="margin:0 0 10px 0; font-size:14px; color:#1e3c72;">🏁 Настройка Старта и Финиша</h4>
+                
+                <div style="margin-bottom:8px;">
+                    <div style="font-size:12px; font-weight:bold; color:#2c3e50; margin-bottom:4px;">🟢 Стартовая точка:</div>
+                    <div style="display:flex; gap:5px;">
+                        <input type="text" id="startInput" placeholder="Укажите адрес..." class="location-input" style="margin:0;">
+                        <button class="icon-btn" onclick="window.setStartFromGPS()" style="background:#fff;border:1px solid #ccc;border-radius:4px;" title="Моё местоположение">📍</button>
+                        <button class="btn-primary" onclick="window.setStartFromInput()" style="padding:4px 10px; font-size:12px;">Задать</button>
+                    </div>
+                </div>
                 <div id="mapClickInfo" style="display: none; background: #eef2ff; padding: 12px; border-radius: 28px; margin-top: 12px; text-align: center; font-weight: 500;">
                     🖱️ Режим добавления: кликните по карте — определится точный адрес
                 </div>
@@ -161,39 +174,6 @@
                 
                 
             </div>
-            
-            <div class="start-end-panel" style="background:#f8f9fa; padding:12px; border-radius:8px; margin-bottom:15px; border:1px solid #e2e8f0;">
-                <h4 style="margin:0 0 10px 0; font-size:14px; color:#1e3c72;">🏁 Настройка Старта и Финиша</h4>
-                
-                <div style="margin-bottom:8px;">
-                    <div style="font-size:12px; font-weight:bold; color:#2c3e50; margin-bottom:4px;">🟢 Стартовая точка:</div>
-                    <div style="display:flex; gap:5px;">
-                        <input type="text" id="startInput" placeholder="Укажите адрес..." class="location-input" style="margin:0;">
-                        <button class="icon-btn" onclick="window.setStartFromGPS()" style="background:#fff;border:1px solid #ccc;border-radius:4px;" title="Моё местоположение">📍</button>
-                        <button class="btn-primary" onclick="window.setStartFromInput()" style="padding:4px 10px; font-size:12px;">Задать</button>
-                    </div>
-                </div>
-
-                <label class="checkbox-label" style="font-size:13px; margin-bottom:8px;">
-                    <input type="checkbox" id="returnToStartCheckbox" checked onchange="window.toggleEndMode()">
-                    <span>🔄 Вернуться в начальную точку</span>
-                </label>
-
-                <div id="endPointWrapper" style="opacity: 0.5; pointer-events: none;">
-                    <div style="font-size:12px; font-weight:bold; color:#2c3e50; margin-bottom:4px;">🏁 Конечная точка:</div>
-                    <div style="display:flex; gap:5px;">
-                        <input type="text" id="endInput" placeholder="Совпадает со стартом" class="location-input" style="margin:0;" disabled>
-                        <button class="icon-btn" id="endGpsBtn" onclick="window.setEndFromGPS()" style="background:#fff;border:1px solid #ccc;border-radius:4px;" title="Моё местоположение" disabled>📍</button>
-                        <button class="btn-primary" id="endSetBtn" onclick="window.setEndFromInput()" style="padding:4px 10px; font-size:12px;" disabled>Задать</button>
-                    </div>
-                </div>
-                
-                <div class="stats-panel" id="quickStats" style="display: none; margin-top:10px;">
-                    <span>📌 Точек: <span id="quickPointsCount">0</span></span>
-                    <span>📏 Расстояние: <span id="quickDistance">0 км</span></span>
-                </div>
-            </div>
-
             <div class="locations-list">
                 <h3 style="margin-bottom: 14px;">🛣️ Мой маршрут (<span id="locationCount">0</span>)</h3>
                 <div id="locationsContainer" style="max-height: 400px; overflow-y: auto;"></div>
@@ -449,11 +429,13 @@
                 endInput.disabled = true;
                 endGpsBtn.disabled = true;
                 endSetBtn.disabled = true;
+                
+                const startLoc = locations.find(l => l.role === 'start');
                 const existingEndIdx = locations.findIndex(l => l.role === 'end');
-                if (existingEndIdx !== -1) {
-                    locations.splice(existingEndIdx, 1);
-                    updateLocationsUI();
-                    refreshMapMarkers();
+                if (existingEndIdx !== -1) locations.splice(existingEndIdx, 1);
+                
+                if (startLoc) {
+                    locations.push({ lat: startLoc.lat, lng: startLoc.lng, address: 'Возврат: ' + startLoc.address, role: 'end', id: Date.now() + Math.random() });
                 }
             } else {
                 endWrap.style.opacity = '1';
@@ -461,20 +443,39 @@
                 endInput.disabled = false;
                 endGpsBtn.disabled = false;
                 endSetBtn.disabled = false;
+                
+                const existingEndIdx = locations.findIndex(l => l.role === 'end');
+                if (existingEndIdx !== -1) locations.splice(existingEndIdx, 1);
             }
             
-            if (locations.length >= 2) { 
-                currentOptimizedOrder ? buildOptimal() : buildManualRoute(); 
-            }
+            updateLocationsUI();
+            refreshMapMarkers();
+            if (locations.length >= 2) { buildOptimal(); }
         };
 
         window.setStartPoint = (address, lat, lng) => {
             const existingIdx = locations.findIndex(l => l.role === 'start');
             if (existingIdx !== -1) locations.splice(existingIdx, 1);
             locations.unshift({ lat, lng, address, role: 'start', id: Date.now() + Math.random() });
+            
+            if (document.getElementById('returnToStartCheckbox').checked) {
+                const existingEndIdx = locations.findIndex(l => l.role === 'end');
+                if (existingEndIdx !== -1) locations.splice(existingEndIdx, 1);
+                locations.push({ lat, lng, address: 'Возврат: ' + address, role: 'end', id: Date.now() + Math.random() });
+            }
+            
             updateLocationsUI();
             refreshMapMarkers();
-            if(locations.length >= 2) buildManualRoute();
+            if(locations.length >= 2) buildOptimal();
+        };
+
+        window.setEndPoint = (address, lat, lng) => {
+            const existingIdx = locations.findIndex(l => l.role === 'end');
+            if (existingIdx !== -1) locations.splice(existingIdx, 1);
+            locations.push({ lat, lng, address, role: 'end', id: Date.now() + Math.random() });
+            updateLocationsUI();
+            refreshMapMarkers();
+            if(locations.length >= 2) buildOptimal();
         };
 
         window.setEndPoint = (address, lat, lng) => {
@@ -624,9 +625,7 @@
             }
             const needReturn = document.getElementById('returnToStartCheckbox').checked;
             const waypoints = locations.map(l => L.latLng(l.lat, l.lng));
-            if (needReturn) {
-                waypoints.push(L.latLng(locations[0].lat, locations[0].lng));
-            }
+            
             
             if (routingControl) map.removeControl(routingControl);
             
@@ -674,7 +673,7 @@
             
             currentOptimizedOrder = ordered; 
             let waypoints = ordered.map(p => L.latLng(p.lat, p.lng)); 
-            if(needReturn && ordered.length>1) waypoints.push(L.latLng(ordered[0].lat, ordered[0].lng)); 
+             
             routingControl = L.Routing.control({ waypoints, router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }), lineOptions: { styles: [{ color: '#ff7b2c', weight: 5 }] }, show: false }).addTo(map); 
             routingControl.on('routesfound', (e) => { 
                 const route = e.routes[0]; 
