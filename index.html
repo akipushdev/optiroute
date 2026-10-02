@@ -1058,14 +1058,12 @@
         map.on('click', handleMapClick);
         document.getElementById('searchModeBtn').onclick=()=>setMapClickMode(false);
         document.getElementById('mapClickModeBtn').onclick=()=>setMapClickMode(true);
-        document.getElementById('geolocationBtn').onclick=getUserLocation;
-        document.getElementById('optimizeRouteBtn').onclick=buildOptimal;
+                document.getElementById('optimizeRouteBtn').onclick=buildOptimal;
         document.getElementById('shareRouteBtn').onclick = () => {
             if (locations.length === 0) { alert('Маршрут пуст'); return; }
             shareRoute(currentOptimizedOrder || locations);
         };
-        document.getElementById('shareRouteBtn').onclick=shareRoute;
-        document.getElementById('clearAllBtn').onclick=() => {
+                document.getElementById('clearAllBtn').onclick=() => {
             if(!confirm('Удалить промежуточные точки? (Старт и Финиш останутся)')) return;
             locations = locations.filter(l => l.role === 'start' || l.role === 'end');
             updateLocationsUI();
