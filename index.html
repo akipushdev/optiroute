@@ -433,6 +433,17 @@
         }
 
         
+        
+        window.confirmReoptimize = () => {
+            if (locations.length >= 2) {
+                if (confirm('Маршрут будет автоматически перестроен оптимально. Продолжить?')) {
+                    buildOptimal();
+                } else {
+                    buildManualRoute();
+                }
+            }
+        };
+
         window.toggleEndMode = () => {
             const isReturn = document.getElementById('returnToStartCheckbox').checked;
             const endWrap = document.getElementById('endPointWrapper');
@@ -467,7 +478,7 @@
             
             updateLocationsUI();
             refreshMapMarkers();
-            if (locations.length >= 2) { buildOptimal(); }
+            window.confirmReoptimize();
         };
 
         window.setStartPoint = (address, lat, lng) => {
@@ -790,6 +801,7 @@
             const geo = await geocode(val);
             if (geo) {
                 await addLocation(geo.displayName, geo.lat, geo.lng);
+                window.confirmReoptimize();
                 
                 if (result) {
                     result.status = 'success';
@@ -1078,8 +1090,7 @@
             updateQuickStats();
             currentOptimizedOrder = null;
             document.getElementById('infoPanel').innerHTML='<div style="font-weight:800;">📊 Маршрутный центр</div><div>💡 Кликните по карте для добавления точки с точным адресом</div>';
-            if (locations.length >= 2) buildOptimal();
-        };
+            window.confirmReoptimize();;
         document.getElementById('returnToStartCheckbox').onchange=(e)=>{ returnToStart=e.target.checked; updateQuickStats(); if(locations.length>=2) clearRoute(); };
         document.getElementById('addBtn').onclick=async()=>{ const val=document.getElementById('addressInput').value.trim(); if(val && currentPreviewData){ await addLocation(currentPreviewData.address,currentPreviewData.lat,currentPreviewData.lng); clearPreview(); document.getElementById('addressInput').value=''; } else if(val){ await addLocation(val); clearPreview(); document.getElementById('addressInput').value=''; } else alert('Введите адрес'); };
         document.getElementById('voiceInputBtn').onclick=startVoiceInput;
