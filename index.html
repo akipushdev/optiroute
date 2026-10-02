@@ -1109,9 +1109,7 @@
                     
                     if (locations.length >= 2) {
                         setTimeout(() => {
-                            if (confirm(`✅ Добавлено ${added} точек. Построить оптимальный маршрут?`)) {
-                                buildOptimal();
-                            }
+                            buildManualRoute();
                         }, 1000);
                     }
                 } else {
